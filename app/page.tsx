@@ -1,10 +1,15 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const C = {
   sage: "#7B9E87",
   sageLight: "#A8C5B0",
-  sageDark: "#5C7A67",
   lavender: "#B8A9C9",
   lavenderLight: "#D4CCE0",
   cream: "#F8F5F0",
@@ -20,7 +25,7 @@ const globalStyles = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Georgia, serif; background: #FDFCFA; -webkit-text-size-adjust: 100%; }
   button { font-family: Georgia, serif; }
-  input, textarea, select { font-family: Georgia, serif; }
+  input, textarea { font-family: Georgia, serif; }
   .btn-primary {
     background: #7B9E87; color: white; border: none;
     padding: 14px 24px; border-radius: 12px; font-size: 15px;
@@ -33,7 +38,6 @@ const globalStyles = `
     border: 2px solid #7B9E87; padding: 14px 24px;
     border-radius: 12px; font-size: 15px; font-weight: 700;
     cursor: pointer; display: block; width: 100%; text-align: center;
-    transition: all 0.2s;
   }
   input, textarea {
     width: 100%; padding: 13px 16px; border-radius: 10px;
@@ -42,89 +46,28 @@ const globalStyles = `
     -webkit-appearance: none;
   }
   input:focus, textarea:focus { border-color: #7B9E87; }
-  label {
-    display: block; font-size: 13px; font-weight: 700;
-    color: #2C2C2C; margin-bottom: 6px;
-  }
+  label { display: block; font-size: 13px; font-weight: 700; color: #2C2C2C; margin-bottom: 6px; }
   .field { display: flex; flex-direction: column; gap: 6px; }
-  .card {
-    background: white; border-radius: 16px; padding: 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  }
-  .avatar {
-    border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; color: white; font-weight: 700;
-    flex-shrink: 0;
-  }
-  .badge {
-    display: inline-block; padding: 4px 12px; border-radius: 20px;
-    font-size: 11px; font-weight: 700; color: white;
-    text-transform: uppercase; letter-spacing: 0.05em;
-  }
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
-    z-index: 300; display: flex; align-items: flex-end;
-    justify-content: center; padding: 0;
-  }
+  .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; flex-shrink: 0; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: white; text-transform: uppercase; letter-spacing: 0.05em; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
   @media (min-width: 600px) {
     .modal-overlay { align-items: center; padding: 16px; }
     .modal-box { border-radius: 20px !important; max-width: 500px; }
   }
-  .modal-box {
-    background: white; border-radius: 20px 20px 0 0;
-    padding: 28px 20px; width: 100%;
-    max-height: 90vh; overflow-y: auto;
-  }
-  .top-nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-    background: rgba(253,252,250,0.97);
-    border-bottom: 1px solid #E8E2DA;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-  .top-nav-inner {
-    max-width: 1100px; margin: 0 auto;
-    display: flex; align-items: center;
-    justify-content: space-between;
-    padding: 0 16px; height: 60px;
-  }
+  .modal-box { background: white; border-radius: 20px 20px 0 0; padding: 28px 20px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .top-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 200; background: rgba(253,252,250,0.97); border-bottom: 1px solid #E8E2DA; backdrop-filter: blur(10px); }
+  .top-nav-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 60px; }
   .logo { font-size: 18px; font-weight: 700; color: #2C2C2C; }
   .logo-green { color: #7B9E87; }
-  .sidebar {
-    width: 220px; background: white; height: 100vh;
-    position: fixed; left: 0; top: 0;
-    box-shadow: 2px 0 12px rgba(0,0,0,0.06);
-    display: flex; flex-direction: column; z-index: 50;
-    overflow-y: auto;
-  }
-  .sidebar-dark {
-    width: 220px; background: #2C2C2C; height: 100vh;
-    position: fixed; left: 0; top: 0;
-    display: flex; flex-direction: column; z-index: 50;
-    overflow-y: auto;
-  }
-  .dash-content {
-    margin-left: 220px; padding: 28px;
-    min-height: 100vh; background: #F8F5F0;
-  }
-  .menu-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 11px 14px; border-radius: 10px; border: none;
-    cursor: pointer; font-size: 14px; font-weight: 600;
-    margin-bottom: 4px; width: 100%; text-align: left;
-    transition: all 0.2s; background: transparent;
-  }
-  .bottom-nav {
-    display: none; position: fixed; bottom: 0; left: 0; right: 0;
-    background: white; border-top: 1px solid #E8E2DA;
-    z-index: 100; padding: 6px 0 10px;
-  }
+  .sidebar { width: 220px; background: white; height: 100vh; position: fixed; left: 0; top: 0; box-shadow: 2px 0 12px rgba(0,0,0,0.06); display: flex; flex-direction: column; z-index: 50; overflow-y: auto; }
+  .sidebar-dark { width: 220px; background: #2C2C2C; height: 100vh; position: fixed; left: 0; top: 0; display: flex; flex-direction: column; z-index: 50; overflow-y: auto; }
+  .dash-content { margin-left: 220px; padding: 28px; min-height: 100vh; background: #F8F5F0; }
+  .menu-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; margin-bottom: 4px; width: 100%; text-align: left; transition: all 0.2s; background: transparent; }
+  .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #E8E2DA; z-index: 100; padding: 6px 0 10px; }
   .bottom-nav-inner { display: flex; }
-  .bottom-nav-btn {
-    flex: 1; display: flex; flex-direction: column; align-items: center;
-    gap: 3px; background: none; border: none; cursor: pointer;
-    padding: 4px 0; font-size: 10px; color: #6B7280;
-  }
+  .bottom-nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; padding: 4px 0; font-size: 10px; color: #6B7280; }
   .bottom-nav-btn.active { color: #7B9E87; }
   .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
   .plans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -132,11 +75,7 @@ const globalStyles = `
   .pros-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
   .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .admin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .time-slot {
-    padding: 10px 14px; border-radius: 8px; border: 1.5px solid #E8E2DA;
-    background: white; cursor: pointer; font-size: 14px;
-    font-family: Georgia, serif; font-weight: 600; transition: all 0.2s;
-  }
+  .time-slot { padding: 10px 14px; border-radius: 8px; border: 1.5px solid #E8E2DA; background: white; cursor: pointer; font-size: 14px; font-family: Georgia, serif; font-weight: 600; transition: all 0.2s; }
   @media (max-width: 768px) {
     .sidebar, .sidebar-dark { display: none !important; }
     .dash-content { margin-left: 0 !important; padding: 16px; padding-bottom: 80px; }
@@ -151,7 +90,6 @@ const globalStyles = `
   }
 `;
 
-// ── TIPOS ─────────────────────────────────────────────────────────────────────
 interface Profissional {
   id: number;
   nome: string;
@@ -165,20 +103,21 @@ interface Profissional {
 }
 
 interface Agendamento {
-  id: number;
-  pro: Profissional;
+  id: string;
+  pro_nome: string;
+  pro_iniciais: string;
   data: string;
   hora: string;
   status: string;
 }
 
 interface Usuario {
+  id: string;
   nome: string;
   email: string;
   perfil: string;
 }
 
-// ── DADOS ─────────────────────────────────────────────────────────────────────
 const PROFISSIONAIS: Profissional[] = [
   { id: 1, nome: "Dra. Ana Beatriz Carvalho", crp: "06/123456", especialidade: "Ansiedade e Depressão", abordagem: "TCC", nota: 4.9, avaliacoes: 127, iniciais: "AB", disponivel: true },
   { id: 2, nome: "Dr. Felipe Mendes", crp: "06/234567", especialidade: "Relacionamentos e Família", abordagem: "Psicanálise", nota: 4.8, avaliacoes: 89, iniciais: "FM", disponivel: true },
@@ -194,7 +133,6 @@ const DEPOIMENTOS = [
   { nome: "Carla F.", texto: "A Dra. Ana me ajudou a superar minha ansiedade. O processo foi muito gentil e extremamente profissional.", plano: "Plano Mensal" },
 ];
 
-// ── COMPONENTES BASE ──────────────────────────────────────────────────────────
 const Av = ({ iniciais, tamanho = 44, cor = C.sage }: { iniciais: string; tamanho?: number; cor?: string }) => (
   <div className="avatar" style={{ width: tamanho, height: tamanho, fontSize: tamanho * 0.33, background: `linear-gradient(135deg, ${cor}, ${C.lavender})` }}>
     {iniciais}
@@ -210,7 +148,7 @@ const Modal = ({ titulo, onFechar, children }: { titulo: string; onFechar: () =>
     <div className="modal-box">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, color: C.charcoal }}>{titulo}</h2>
-        <button onClick={onFechar} style={{ background: "none", border: "none", fontSize: 28, cursor: "pointer", color: C.mist, lineHeight: 1 }}>×</button>
+        <button onClick={onFechar} style={{ background: "none", border: "none", fontSize: 28, cursor: "pointer", color: C.mist }}>×</button>
       </div>
       {children}
     </div>
@@ -224,30 +162,88 @@ const Campo = ({ label, tipo = "text", valor, onChange, placeholder, obrigatorio
   </div>
 );
 
-// ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────────
+// ── AUTENTICAÇÃO REAL COM SUPABASE ────────────────────────────────────────────
 const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: () => void; onAutenticar: (u: Usuario) => void }) => {
   const [aba, setAba] = useState(modo);
   const [form, setForm] = useState({ nome: "", email: "", cpf: "", senha: "" });
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
 
   const f = (campo: string) => (val: string) => setForm((p) => ({ ...p, [campo]: val }));
 
   const entrar = async () => {
-    setErro(""); setCarregando(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    if (!form.email || !form.senha) { setErro("Preencha todos os campos obrigatórios."); setCarregando(false); return; }
-    if (form.email === "admin@thera.com") onAutenticar({ nome: "Administrador", email: form.email, perfil: "admin" });
-    else if (form.email === "psi@thera.com") onAutenticar({ nome: "Dra. Ana Beatriz", email: form.email, perfil: "profissional" });
-    else onAutenticar({ nome: form.nome || "Paciente", email: form.email, perfil: "paciente" });
-    setCarregando(false);
+    setErro(""); setSucesso(""); setCarregando(true);
+    try {
+      // Acesso demo para admin e profissional
+      if (form.email === "admin@thera.com" && form.senha === "admin123") {
+        onAutenticar({ id: "admin", nome: "Administrador", email: form.email, perfil: "admin" });
+        return;
+      }
+      if (form.email === "psi@thera.com" && form.senha === "psi123") {
+        onAutenticar({ id: "psi", nome: "Dra. Ana Beatriz", email: form.email, perfil: "profissional" });
+        return;
+      }
+      // Login real com Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.senha,
+      });
+      if (error) { setErro("E-mail ou senha incorretos. Tente novamente."); return; }
+      if (data.user) {
+        const { data: perfil } = await supabase.from("perfis").select("*").eq("id", data.user.id).single();
+        onAutenticar({
+          id: data.user.id,
+          nome: perfil?.nome || form.email,
+          email: form.email,
+          perfil: perfil?.perfil || "paciente",
+        });
+      }
+    } catch {
+      setErro("Erro ao conectar. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const cadastrar = async () => {
+    setErro(""); setSucesso(""); setCarregando(true);
+    if (!form.nome || !form.email || !form.cpf || !form.senha) {
+      setErro("Preencha todos os campos obrigatórios."); setCarregando(false); return;
+    }
+    if (form.senha.length < 6) {
+      setErro("A senha deve ter pelo menos 6 caracteres."); setCarregando(false); return;
+    }
+    try {
+      // Criar conta no Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.senha,
+      });
+      if (error) { setErro("Erro ao criar conta: " + error.message); return; }
+      if (data.user) {
+        // Salvar perfil no banco
+        await supabase.from("perfis").insert({
+          id: data.user.id,
+          nome: form.nome,
+          cpf: form.cpf,
+          perfil: "paciente",
+          plano: "avulsa",
+        });
+        setSucesso("Conta criada com sucesso! Verifique seu e-mail para confirmar o cadastro.");
+      }
+    } catch {
+      setErro("Erro ao criar conta. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
     <Modal titulo={aba === "login" ? "Bem-vindo de volta" : "Criar conta gratuita"} onFechar={onFechar}>
       <div style={{ display: "flex", background: C.cream, borderRadius: 10, padding: 4, marginBottom: 24, gap: 4 }}>
         {[["login","Entrar"],["cadastro","Cadastrar"]].map(([v, l]) => (
-          <button key={v} onClick={() => setAba(v)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: aba === v ? "white" : "transparent", fontWeight: 700, fontSize: 14, color: aba === v ? C.charcoal : C.mist, boxShadow: aba === v ? "0 2px 8px rgba(0,0,0,0.08)" : "none" }}>{l}</button>
+          <button key={v} onClick={() => { setAba(v); setErro(""); setSucesso(""); }} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: aba === v ? "white" : "transparent", fontWeight: 700, fontSize: 14, color: aba === v ? C.charcoal : C.mist, boxShadow: aba === v ? "0 2px 8px rgba(0,0,0,0.08)" : "none" }}>{l}</button>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -255,11 +251,15 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: (
         <Campo label="E-mail" tipo="email" valor={form.email} onChange={f("email")} placeholder="seu@email.com" obrigatorio />
         {aba === "cadastro" && <Campo label="CPF" valor={form.cpf} onChange={f("cpf")} placeholder="000.000.000-00" obrigatorio />}
         <Campo label="Senha" tipo="password" valor={form.senha} onChange={f("senha")} placeholder="••••••••" obrigatorio />
+
         {erro && <div style={{ color: "#EF4444", fontSize: 13, background: "#FEF2F2", padding: "10px 14px", borderRadius: 8 }}>{erro}</div>}
+        {sucesso && <div style={{ color: "#16A34A", fontSize: 13, background: "#DCFCE7", padding: "10px 14px", borderRadius: 8 }}>{sucesso}</div>}
+
         <div style={{ background: C.cream, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: C.mist }}>
-          <strong>Demonstração:</strong> admin@thera.com (admin) · psi@thera.com (profissional) · qualquer e-mail (paciente)
+          <strong>Demo:</strong> admin@thera.com / admin123 · psi@thera.com / psi123
         </div>
-        <button className="btn-primary" onClick={entrar}>
+
+        <button className="btn-primary" onClick={aba === "login" ? entrar : cadastrar}>
           {carregando ? "Aguarde..." : aba === "login" ? "Entrar" : "Criar conta"}
         </button>
       </div>
@@ -282,14 +282,11 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
 
   return (
     <div>
-      {/* HERO */}
       <section style={{ background: `linear-gradient(160deg, ${C.cream}, ${C.warm})`, paddingTop: 80, paddingBottom: 56 }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px" }}>
           <div className="hero-grid">
             <div>
-              <div style={{ display: "inline-block", background: `${C.sage}22`, color: C.sage, padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, marginBottom: 20 }}>
-                +2.000 pacientes atendidos
-              </div>
+              <div style={{ display: "inline-block", background: `${C.sage}22`, color: C.sage, padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, marginBottom: 20 }}>+2.000 pacientes atendidos</div>
               <h1 style={{ fontSize: "clamp(30px, 5vw, 52px)", lineHeight: 1.2, color: C.charcoal, marginBottom: 16 }}>
                 Cuide da sua <span style={{ color: C.sage }}>saúde mental</span> onde você estiver
               </h1>
@@ -333,20 +330,18 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
         </div>
       </section>
 
-      {/* COMO FUNCIONA */}
       <section style={{ padding: "60px 16px", background: "white" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 40 }}>
             <div style={{ fontSize: 12, color: C.sage, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>Processo Simples</div>
             <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", color: C.charcoal }}>Como funciona</h2>
-            <p style={{ color: C.mist, fontSize: 15, marginTop: 10, maxWidth: 480, margin: "10px auto 0" }}>Em poucos passos você já pode começar sua jornada terapêutica</p>
           </div>
           <div className="steps-grid">
             {[
-              { n: "01", ic: "🎯", t: "Escolha seu plano", d: "Selecione entre sessão avulsa ou plano mensal conforme sua necessidade" },
+              { n: "01", ic: "🎯", t: "Escolha seu plano", d: "Selecione entre sessão avulsa ou plano mensal" },
               { n: "02", ic: "👤", t: "Crie sua conta", d: "Cadastro rápido e seguro em menos de 2 minutos" },
-              { n: "03", ic: "🗓️", t: "Escolha o profissional", d: "Encontre o psicólogo ideal e agende o horário preferido" },
-              { n: "04", ic: "💬", t: "Inicie a sessão", d: "Entre na videochamada segura e comece sua transformação" },
+              { n: "03", ic: "🗓️", t: "Escolha o profissional", d: "Encontre o psicólogo ideal e agende o horário" },
+              { n: "04", ic: "💬", t: "Inicie a sessão", d: "Entre na videochamada e comece sua transformação" },
             ].map(({ n, ic, t, d }) => (
               <div key={n} style={{ background: C.cream, borderRadius: 16, padding: 20, position: "relative" }}>
                 <div style={{ fontSize: 28, marginBottom: 12 }}>{ic}</div>
@@ -359,7 +354,6 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
         </div>
       </section>
 
-      {/* PROFISSIONAIS */}
       <section style={{ padding: "60px 16px", background: C.cream }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 36 }}>
@@ -385,7 +379,6 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
         </div>
       </section>
 
-      {/* PLANOS */}
       <section style={{ padding: "60px 16px", background: "white" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 36 }}>
@@ -413,16 +406,13 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
                     </div>
                   ))}
                 </div>
-                <button className="btn-primary" style={{ background: p.destaque ? C.gold : C.sage }} onClick={() => onAuth("cadastro")}>
-                  Contratar {p.nome}
-                </button>
+                <button className="btn-primary" style={{ background: p.destaque ? C.gold : C.sage }} onClick={() => onAuth("cadastro")}>Contratar {p.nome}</button>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* DEPOIMENTOS */}
       <section style={{ padding: "60px 16px", background: C.cream }}>
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
           <div style={{ fontSize: 12, color: C.sage, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>Depoimentos</div>
@@ -444,18 +434,14 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
         </div>
       </section>
 
-      {/* CTA */}
       <section style={{ padding: "60px 16px", background: `linear-gradient(135deg, ${C.charcoal}, ${C.blue})`, textAlign: "center" }}>
         <div style={{ maxWidth: 600, margin: "0 auto" }}>
           <h2 style={{ fontSize: "clamp(24px, 4vw, 44px)", color: "white", marginBottom: 16, lineHeight: 1.2 }}>Sua jornada começa com um passo</h2>
           <p style={{ color: "#9CA3AF", fontSize: 16, marginBottom: 32, lineHeight: 1.6 }}>Milhares de pessoas já transformaram suas vidas com o suporte de nossa equipe especializada.</p>
-          <button className="btn-primary" style={{ background: C.gold, maxWidth: 360, margin: "0 auto" }} onClick={() => onAuth("cadastro")}>
-            Agendar Minha Primeira Sessão
-          </button>
+          <button className="btn-primary" style={{ background: C.gold, maxWidth: 360, margin: "0 auto" }} onClick={() => onAuth("cadastro")}>Agendar Minha Primeira Sessão</button>
         </div>
       </section>
 
-      {/* FOOTER */}
       <footer style={{ background: "#1A1A1A", padding: "40px 16px", color: "#9CA3AF" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <div style={{ fontSize: 20, color: "white", fontWeight: 700, marginBottom: 8 }}>Instituto Thera</div>
@@ -467,12 +453,10 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
   );
 };
 
-// ── DASHBOARD PACIENTE ────────────────────────────────────────────────────────
+// ── DASHBOARD PACIENTE COM SUPABASE ───────────────────────────────────────────
 const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) => {
   const [tela, setTela] = useState("inicio");
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([
-    { id: 1, pro: PROFISSIONAIS[0], data: "2025-06-10", hora: "15:00", status: "confirmado" },
-  ]);
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [showAgendar, setShowAgendar] = useState(false);
   const [showChamada, setShowChamada] = useState(false);
   const [proBuscado, setProBuscado] = useState<Profissional | null>(null);
@@ -481,12 +465,51 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
   const [agendouOk, setAgendouOk] = useState(false);
   const [nota, setNota] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
-  const confirmarAgendamento = () => {
+  // Carrega agendamentos do banco
+  useEffect(() => {
+    const carregar = async () => {
+      const { data } = await supabase
+        .from("agendamentos")
+        .select("*")
+        .eq("paciente_id", usuario.id)
+        .order("criado_em", { ascending: false });
+      if (data) setAgendamentos(data);
+    };
+    if (usuario.id !== "admin" && usuario.id !== "psi") carregar();
+  }, [usuario.id]);
+
+  const confirmarAgendamento = async () => {
     if (!proBuscado || !dataEsc || !horaEsc) return;
-    setAgendamentos((p) => [...p, { id: p.length + 1, pro: proBuscado, data: dataEsc, hora: horaEsc, status: "confirmado" }]);
+    setCarregando(true);
+    const novoAgendamento = {
+      paciente_id: usuario.id,
+      profissional_nome: proBuscado.nome,
+      profissional_iniciais: proBuscado.iniciais,
+      data: dataEsc,
+      hora: horaEsc,
+      status: "confirmado",
+    };
+    const { data, error } = await supabase.from("agendamentos").insert(novoAgendamento).select().single();
+    if (!error && data) {
+      setAgendamentos((p) => [data, ...p]);
+    }
+    setCarregando(false);
     setAgendouOk(true);
     setTimeout(() => { setShowAgendar(false); setAgendouOk(false); setProBuscado(null); setDataEsc(""); setHoraEsc(""); }, 2500);
+  };
+
+  const enviarFeedback = async (agendamentoId: string) => {
+    await supabase.from("feedbacks").insert({
+      paciente_id: usuario.id,
+      agendamento_id: agendamentoId,
+      nota,
+      comentario: feedback,
+    });
+    setShowChamada(false);
+    setNota(0);
+    setFeedback("");
   };
 
   const menus = [
@@ -527,7 +550,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 6 }}>Olá, {usuario.nome.split(" ")[0]}! 👋</h1>
             <p style={{ color: C.mist, marginBottom: 24 }}>Como você está se sentindo hoje?</p>
             <div className="stats-grid" style={{ marginBottom: 24 }}>
-              {[["📅","Próxima Sessão","Amanhã, 15h"],["✅","Total de Sessões","12"],["⭐","Plano Atual","Mensal"]].map(([ic,l,v]) => (
+              {[["📅","Consultas","" + agendamentos.length],["✅","Confirmadas","" + agendamentos.filter(a => a.status === "confirmado").length],["⭐","Plano","Ativo"]].map(([ic,l,v]) => (
                 <div key={l} className="stat-card">
                   <div style={{ fontSize: 24 }}>{ic}</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: C.charcoal, margin: "8px 0 4px" }}>{v}</div>
@@ -539,9 +562,9 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
               <div className="card" style={{ marginBottom: 20 }}>
                 <h2 style={{ fontSize: 18, color: C.charcoal, marginBottom: 16 }}>Próxima Consulta</h2>
                 <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
-                  <Av iniciais={agendamentos[0].pro.iniciais} tamanho={48} />
+                  <Av iniciais={agendamentos[0].pro_iniciais} tamanho={48} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 15 }}>{agendamentos[0].pro.nome}</div>
+                    <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 15 }}>{agendamentos[0].pro_nome}</div>
                     <div style={{ color: C.mist, fontSize: 13 }}>{agendamentos[0].data} às {agendamentos[0].hora}</div>
                     <div style={{ color: "#22C55E", fontSize: 12, fontWeight: 700, marginTop: 2 }}>● Confirmado</div>
                   </div>
@@ -556,21 +579,29 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
         {tela === "consultas" && (
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Minhas Consultas</h1>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {agendamentos.map((a) => (
-                <div key={a.id} className="card">
-                  <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
-                    <Av iniciais={a.pro.iniciais} tamanho={44} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, color: C.charcoal }}>{a.pro.nome}</div>
-                      <div style={{ color: C.mist, fontSize: 13 }}>{a.data} às {a.hora}</div>
+            {agendamentos.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: 40 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
+                <p style={{ color: C.mist }}>Você ainda não tem consultas agendadas.</p>
+                <button className="btn-primary" style={{ marginTop: 16, maxWidth: 260, margin: "16px auto 0" }} onClick={() => setShowAgendar(true)}>Agendar Consulta</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {agendamentos.map((a) => (
+                  <div key={a.id} className="card">
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
+                      <Av iniciais={a.pro_iniciais} tamanho={44} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, color: C.charcoal }}>{a.pro_nome}</div>
+                        <div style={{ color: C.mist, fontSize: 13 }}>{a.data} às {a.hora}</div>
+                      </div>
+                      <span className="badge" style={{ background: C.sage }}>Confirmado</span>
                     </div>
-                    <span className="badge" style={{ background: C.sage }}>Confirmado</span>
+                    <button className="btn-primary" onClick={() => setShowChamada(true)}>Entrar na Sessão</button>
                   </div>
-                  <button className="btn-primary" onClick={() => setShowChamada(true)}>Entrar na Sessão</button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -606,10 +637,10 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                 <div>
                   <h2 style={{ fontSize: 20, color: C.charcoal, marginBottom: 4 }}>{usuario.nome}</h2>
                   <div style={{ color: C.mist, fontSize: 14 }}>{usuario.email}</div>
-                  <span className="badge" style={{ background: C.sage, marginTop: 8, display: "inline-block" }}>Plano Mensal</span>
+                  <span className="badge" style={{ background: C.sage, marginTop: 8, display: "inline-block" }}>Paciente Ativo</span>
                 </div>
               </div>
-              {[["Nome completo", usuario.nome],["E-mail", usuario.email],["CPF","•••.•••.•••-••"],["Plano","Mensal — 4 sessões/mês"]].map(([l,v]) => (
+              {[["Nome completo", usuario.nome],["E-mail", usuario.email],["Total de Consultas", "" + agendamentos.length]].map(([l,v]) => (
                 <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: `1px solid ${C.stone}` }}>
                   <span style={{ fontSize: 14, color: C.mist }}>{l}</span>
                   <span style={{ fontSize: 14, fontWeight: 700, color: C.charcoal }}>{v}</span>
@@ -637,7 +668,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
             <div style={{ textAlign: "center", padding: "32px 0" }}>
               <div style={{ fontSize: 56, marginBottom: 12 }}>✅</div>
               <h3 style={{ fontSize: 22, color: C.charcoal, marginBottom: 8 }}>Consulta Agendada!</h3>
-              <p style={{ color: C.mist }}>Você receberá uma confirmação por e-mail.</p>
+              <p style={{ color: C.mist }}>Sua consulta foi salva com sucesso!</p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -674,7 +705,9 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                       </div>
                     </div>
                   )}
-                  <button className="btn-primary" onClick={confirmarAgendamento}>Confirmar Agendamento</button>
+                  <button className="btn-primary" onClick={confirmarAgendamento}>
+                    {carregando ? "Salvando..." : "Confirmar Agendamento"}
+                  </button>
                 </>
               )}
             </div>
@@ -706,7 +739,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
               ))}
             </div>
             <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Deixe seu comentário sobre a sessão..." style={{ marginBottom: 12, minHeight: 80, resize: "vertical" }} />
-            <button className="btn-primary" onClick={() => setShowChamada(false)}>Enviar Avaliação</button>
+            <button className="btn-primary" onClick={() => enviarFeedback(agendamentos[0]?.id || "")}>Enviar Avaliação</button>
           </div>
         </Modal>
       )}
@@ -750,7 +783,7 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <Av iniciais="AB" tamanho={36} cor={C.blue} />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.charcoal }}>Dra. Ana Beatriz</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.charcoal }}>{usuario.nome}</div>
               <div style={{ fontSize: 11, color: C.mist }}>Psicóloga</div>
             </div>
           </div>
@@ -807,7 +840,7 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
 
         {tela === "historico" && (
           <div>
-            <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Histórico de Atendimentos</h1>
+            <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Histórico</h1>
             <div className="card">
               {[...Array(8)].map((_, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: i < 7 ? `1px solid ${C.stone}` : "none" }}>
@@ -865,6 +898,18 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
   const [precos, setPrecos] = useState({ avulsa: 180, mensal: 560 });
   const [editandoPreco, setEditandoPreco] = useState(false);
   const [tmpPrecos, setTmpPrecos] = useState({ avulsa: 180, mensal: 560 });
+  const [totalUsuarios, setTotalUsuarios] = useState(0);
+  const [totalAgendamentos, setTotalAgendamentos] = useState(0);
+
+  useEffect(() => {
+    const carregar = async () => {
+      const { count: u } = await supabase.from("perfis").select("*", { count: "exact", head: true });
+      const { count: a } = await supabase.from("agendamentos").select("*", { count: "exact", head: true });
+      setTotalUsuarios(u || 0);
+      setTotalAgendamentos(a || 0);
+    };
+    carregar();
+  }, []);
 
   const dados = [65,72,80,74,88,95,102,98,115,108,130,142];
   const maxVal = Math.max(...dados);
@@ -901,7 +946,12 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Visão Geral</h1>
             <div className="admin-stats" style={{ marginBottom: 24 }}>
-              {[["👥","Total de Pacientes","2.341","+12%"],["🩺","Profissionais Ativos","28","+3"],["📅","Consultas este mês","847","+8%"],["💰","Faturamento","R$152.460","+15%"]].map(([ic,l,v,d]) => (
+              {[
+                ["👥","Total de Pacientes", "" + totalUsuarios,"+real"],
+                ["🩺","Profissionais Ativos","" + profissionais.filter(p=>p.disponivel).length,"+real"],
+                ["📅","Consultas no Banco","" + totalAgendamentos,"+real"],
+                ["💰","Faturamento","R$" + (totalAgendamentos * 180).toLocaleString("pt-BR"),"+real"],
+              ].map(([ic,l,v,d]) => (
                 <div key={l} className="stat-card">
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                     <span style={{ fontSize: 22 }}>{ic}</span>
@@ -1060,10 +1110,49 @@ export default function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [modoAuth, setModoAuth] = useState("login");
+  const [carregando, setCarregando] = useState(true);
+
+  // Verifica se usuário já está logado
+  useEffect(() => {
+    const verificar = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        const { data: perfil } = await supabase.from("perfis").select("*").eq("id", data.session.user.id).single();
+        setUsuario({
+          id: data.session.user.id,
+          nome: perfil?.nome || data.session.user.email || "Usuário",
+          email: data.session.user.email || "",
+          perfil: perfil?.perfil || "paciente",
+        });
+      }
+      setCarregando(false);
+    };
+    verificar();
+  }, []);
 
   const autenticar = (dados: Usuario) => { setUsuario(dados); setShowAuth(false); };
-  const sair = () => setUsuario(null);
+
+  const sair = async () => {
+    await supabase.auth.signOut();
+    setUsuario(null);
+  };
+
   const abrirAuth = (modo: string) => { setModoAuth(modo); setShowAuth(true); };
+
+  if (carregando) {
+    return (
+      <>
+        <style>{globalStyles}</style>
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.cream }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🌿</div>
+            <div style={{ fontSize: 18, color: C.sage, fontWeight: 700 }}>Instituto Thera</div>
+            <div style={{ fontSize: 13, color: C.mist, marginTop: 8 }}>Carregando...</div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (usuario) {
     if (usuario.perfil === "admin") return (<><style>{globalStyles}</style><DashAdmin onSair={sair} /></>);
