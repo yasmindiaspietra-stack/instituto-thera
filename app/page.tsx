@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 const C = {
   sage: "#7B9E87",
@@ -21,7 +21,6 @@ const globalStyles = `
   body { font-family: Georgia, serif; background: #FDFCFA; -webkit-text-size-adjust: 100%; }
   button { font-family: Georgia, serif; }
   input, textarea, select { font-family: Georgia, serif; }
-
   .btn-primary {
     background: #7B9E87; color: white; border: none;
     padding: 14px 24px; border-radius: 12px; font-size: 15px;
@@ -29,7 +28,6 @@ const globalStyles = `
     display: block; width: 100%; text-align: center;
   }
   .btn-primary:active { opacity: 0.8; }
-
   .btn-outline {
     background: transparent; color: #7B9E87;
     border: 2px solid #7B9E87; padding: 14px 24px;
@@ -37,7 +35,6 @@ const globalStyles = `
     cursor: pointer; display: block; width: 100%; text-align: center;
     transition: all 0.2s;
   }
-
   input, textarea {
     width: 100%; padding: 13px 16px; border-radius: 10px;
     border: 1.5px solid #E8E2DA; font-size: 15px; outline: none;
@@ -45,31 +42,25 @@ const globalStyles = `
     -webkit-appearance: none;
   }
   input:focus, textarea:focus { border-color: #7B9E87; }
-
   label {
     display: block; font-size: 13px; font-weight: 700;
     color: #2C2C2C; margin-bottom: 6px;
   }
-
   .field { display: flex; flex-direction: column; gap: 6px; }
-
   .card {
     background: white; border-radius: 16px; padding: 20px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   }
-
   .avatar {
     border-radius: 50%; display: flex; align-items: center;
     justify-content: center; color: white; font-weight: 700;
     flex-shrink: 0;
   }
-
   .badge {
     display: inline-block; padding: 4px 12px; border-radius: 20px;
     font-size: 11px; font-weight: 700; color: white;
     text-transform: uppercase; letter-spacing: 0.05em;
   }
-
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.55);
     z-index: 300; display: flex; align-items: flex-end;
@@ -84,7 +75,6 @@ const globalStyles = `
     padding: 28px 20px; width: 100%;
     max-height: 90vh; overflow-y: auto;
   }
-
   .top-nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 200;
     background: rgba(253,252,250,0.97);
@@ -100,7 +90,6 @@ const globalStyles = `
   }
   .logo { font-size: 18px; font-weight: 700; color: #2C2C2C; }
   .logo-green { color: #7B9E87; }
-
   .sidebar {
     width: 220px; background: white; height: 100vh;
     position: fixed; left: 0; top: 0;
@@ -125,7 +114,6 @@ const globalStyles = `
     margin-bottom: 4px; width: 100%; text-align: left;
     transition: all 0.2s; background: transparent;
   }
-
   .bottom-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0;
     background: white; border-top: 1px solid #E8E2DA;
@@ -138,20 +126,17 @@ const globalStyles = `
     padding: 4px 0; font-size: 10px; color: #6B7280;
   }
   .bottom-nav-btn.active { color: #7B9E87; }
-
   .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
   .plans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .steps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
   .pros-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
   .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .admin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-
   .time-slot {
     padding: 10px 14px; border-radius: 8px; border: 1.5px solid #E8E2DA;
     background: white; cursor: pointer; font-size: 14px;
     font-family: Georgia, serif; font-weight: 600; transition: all 0.2s;
   }
-
   @media (max-width: 768px) {
     .sidebar, .sidebar-dark { display: none !important; }
     .dash-content { margin-left: 0 !important; padding: 16px; padding-bottom: 80px; }
@@ -166,7 +151,35 @@ const globalStyles = `
   }
 `;
 
-const PROFISSIONAIS = [
+// ── TIPOS ─────────────────────────────────────────────────────────────────────
+interface Profissional {
+  id: number;
+  nome: string;
+  crp: string;
+  especialidade: string;
+  abordagem: string;
+  nota: number;
+  avaliacoes: number;
+  iniciais: string;
+  disponivel: boolean;
+}
+
+interface Agendamento {
+  id: number;
+  pro: Profissional;
+  data: string;
+  hora: string;
+  status: string;
+}
+
+interface Usuario {
+  nome: string;
+  email: string;
+  perfil: string;
+}
+
+// ── DADOS ─────────────────────────────────────────────────────────────────────
+const PROFISSIONAIS: Profissional[] = [
   { id: 1, nome: "Dra. Ana Beatriz Carvalho", crp: "06/123456", especialidade: "Ansiedade e Depressão", abordagem: "TCC", nota: 4.9, avaliacoes: 127, iniciais: "AB", disponivel: true },
   { id: 2, nome: "Dr. Felipe Mendes", crp: "06/234567", especialidade: "Relacionamentos e Família", abordagem: "Psicanálise", nota: 4.8, avaliacoes: 89, iniciais: "FM", disponivel: true },
   { id: 3, nome: "Dra. Camila Rocha", crp: "06/345678", especialidade: "Trauma e TEPT", abordagem: "EMDR", nota: 5.0, avaliacoes: 64, iniciais: "CR", disponivel: false },
@@ -181,18 +194,19 @@ const DEPOIMENTOS = [
   { nome: "Carla F.", texto: "A Dra. Ana me ajudou a superar minha ansiedade. O processo foi muito gentil e extremamente profissional.", plano: "Plano Mensal" },
 ];
 
-const Av = ({ iniciais, tamanho = 44, cor = C.sage }) => (
+// ── COMPONENTES BASE ──────────────────────────────────────────────────────────
+const Av = ({ iniciais, tamanho = 44, cor = C.sage }: { iniciais: string; tamanho?: number; cor?: string }) => (
   <div className="avatar" style={{ width: tamanho, height: tamanho, fontSize: tamanho * 0.33, background: `linear-gradient(135deg, ${cor}, ${C.lavender})` }}>
     {iniciais}
   </div>
 );
 
-const Estrelas = ({ n = 5 }) => (
+const Estrelas = ({ n = 5 }: { n?: number }) => (
   <span style={{ color: C.gold, fontSize: 13 }}>{"★".repeat(Math.round(n))}{"☆".repeat(5 - Math.round(n))}</span>
 );
 
-const Modal = ({ titulo, onFechar, children }) => (
-  <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onFechar()}>
+const Modal = ({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) => (
+  <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onFechar()}>
     <div className="modal-box">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, color: C.charcoal }}>{titulo}</h2>
@@ -203,24 +217,25 @@ const Modal = ({ titulo, onFechar, children }) => (
   </div>
 );
 
-const Campo = ({ label, tipo = "text", valor, onChange, placeholder, obrigatorio }) => (
+const Campo = ({ label, tipo = "text", valor, onChange, placeholder, obrigatorio }: { label: string; tipo?: string; valor: string; onChange: (v: string) => void; placeholder?: string; obrigatorio?: boolean }) => (
   <div className="field">
     <label>{label}{obrigatorio && <span style={{ color: "#EF4444" }}> *</span>}</label>
-    <input type={tipo} value={valor} onChange={e => onChange(e.target.value)} placeholder={placeholder} required={obrigatorio} />
+    <input type={tipo} value={valor} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} required={obrigatorio} />
   </div>
 );
 
-const ModalAuth = ({ modo, onFechar, onAutenticar }) => {
+// ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────────
+const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: () => void; onAutenticar: (u: Usuario) => void }) => {
   const [aba, setAba] = useState(modo);
   const [form, setForm] = useState({ nome: "", email: "", cpf: "", senha: "" });
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
 
-  const f = (campo) => (val) => setForm(p => ({ ...p, [campo]: val }));
+  const f = (campo: string) => (val: string) => setForm((p) => ({ ...p, [campo]: val }));
 
   const entrar = async () => {
     setErro(""); setCarregando(true);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000));
     if (!form.email || !form.senha) { setErro("Preencha todos os campos obrigatórios."); setCarregando(false); return; }
     if (form.email === "admin@thera.com") onAutenticar({ nome: "Administrador", email: form.email, perfil: "admin" });
     else if (form.email === "psi@thera.com") onAutenticar({ nome: "Dra. Ana Beatriz", email: form.email, perfil: "profissional" });
@@ -232,12 +247,7 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }) => {
     <Modal titulo={aba === "login" ? "Bem-vindo de volta" : "Criar conta gratuita"} onFechar={onFechar}>
       <div style={{ display: "flex", background: C.cream, borderRadius: 10, padding: 4, marginBottom: 24, gap: 4 }}>
         {[["login","Entrar"],["cadastro","Cadastrar"]].map(([v, l]) => (
-          <button key={v} onClick={() => setAba(v)} style={{
-            flex: 1, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer",
-            background: aba === v ? "white" : "transparent",
-            fontWeight: 700, fontSize: 14, color: aba === v ? C.charcoal : C.mist,
-            boxShadow: aba === v ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
-          }}>{l}</button>
+          <button key={v} onClick={() => setAba(v)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: aba === v ? "white" : "transparent", fontWeight: 700, fontSize: 14, color: aba === v ? C.charcoal : C.mist, boxShadow: aba === v ? "0 2px 8px rgba(0,0,0,0.08)" : "none" }}>{l}</button>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -257,15 +267,16 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }) => {
   );
 };
 
-const PaginaInicial = ({ onAuth }) => {
+// ── HOMEPAGE ──────────────────────────────────────────────────────────────────
+const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
   const [depIdx, setDepIdx] = useState(0);
   const planos = [
-    { id: "avulsa", nome: "Sessão Avulsa", preco: 180, desc: "Ideal para quem quer experimentar a terapia online", itens: ["1 sessão de 50 minutos","Escolha de profissional","Videochamada segura","Reagendamento gratuito"], destaque: false },
+    { id: "avulsa", nome: "Sessão Avulsa", preco: 180, precoPorSessao: null, desc: "Ideal para quem quer experimentar a terapia online", itens: ["1 sessão de 50 minutos","Escolha de profissional","Videochamada segura","Reagendamento gratuito"], destaque: false },
     { id: "mensal", nome: "Plano Mensal", preco: 560, precoPorSessao: 140, desc: "Para quem busca um processo terapêutico consistente", itens: ["4 sessões por mês","Economia de R$80/mês","Profissional fixo","Suporte via chat","Histórico completo"], destaque: true },
   ];
 
   useEffect(() => {
-    const t = setInterval(() => setDepIdx(p => (p + 1) % DEPOIMENTOS.length), 4000);
+    const t = setInterval(() => setDepIdx((p) => (p + 1) % DEPOIMENTOS.length), 4000);
     return () => clearInterval(t);
   }, []);
 
@@ -312,7 +323,7 @@ const PaginaInicial = ({ onAuth }) => {
                   <div style={{ fontWeight: 700, fontSize: 18, color: C.charcoal }}>Hoje, 15:00</div>
                   <div style={{ fontSize: 13, color: C.sage, marginTop: 4, fontWeight: 600 }}>● Videochamada pronta</div>
                 </div>
-                {["Ansiedade","Autoestima","Relacionamentos"].map(t => (
+                {["Ansiedade","Autoestima","Relacionamentos"].map((t) => (
                   <div key={t} style={{ background: `${C.lavenderLight}55`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: C.charcoal, marginBottom: 8 }}>{t}</div>
                 ))}
                 <button className="btn-primary" style={{ marginTop: 8 }}>Entrar na Sessão →</button>
@@ -356,7 +367,7 @@ const PaginaInicial = ({ onAuth }) => {
             <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", color: C.charcoal }}>Profissionais certificados</h2>
           </div>
           <div className="pros-grid">
-            {PROFISSIONAIS.map(p => (
+            {PROFISSIONAIS.map((p) => (
               <div key={p.id} style={{ background: "white", borderRadius: 16, padding: 20, textAlign: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, position: "relative" }}>
                   <Av iniciais={p.iniciais} tamanho={60} />
@@ -382,7 +393,7 @@ const PaginaInicial = ({ onAuth }) => {
             <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", color: C.charcoal }}>Planos e preços</h2>
           </div>
           <div className="plans-grid">
-            {planos.map(p => (
+            {planos.map((p) => (
               <div key={p.id} style={{ borderRadius: 20, padding: 28, background: p.destaque ? C.charcoal : "white", border: p.destaque ? "none" : `1px solid ${C.stone}`, boxShadow: p.destaque ? "0 16px 48px rgba(44,44,44,0.2)" : "0 2px 12px rgba(0,0,0,0.05)", position: "relative" }}>
                 {p.destaque && <div style={{ position: "absolute", top: 16, right: 16 }}><span className="badge" style={{ background: C.gold }}>Mais Popular</span></div>}
                 <h3 style={{ fontSize: 20, color: p.destaque ? "white" : C.charcoal, marginBottom: 6 }}>{p.nome}</h3>
@@ -393,7 +404,7 @@ const PaginaInicial = ({ onAuth }) => {
                   {p.precoPorSessao && <div style={{ fontSize: 12, color: C.sage, marginTop: 4, fontWeight: 700 }}>= R${p.precoPorSessao} por sessão</div>}
                 </div>
                 <div style={{ marginBottom: 24 }}>
-                  {p.itens.map(item => (
+                  {p.itens.map((item) => (
                     <div key={item} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
                       <div style={{ width: 18, height: 18, borderRadius: "50%", background: p.destaque ? C.sage : `${C.sage}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
                         <span style={{ fontSize: 10, color: p.destaque ? "white" : C.sage, fontWeight: 700 }}>✓</span>
@@ -418,9 +429,7 @@ const PaginaInicial = ({ onAuth }) => {
           <h2 style={{ fontSize: "clamp(22px, 4vw, 34px)", color: C.charcoal, marginBottom: 36 }}>O que dizem nossos pacientes</h2>
           <div style={{ background: "white", borderRadius: 20, padding: "36px 24px", boxShadow: "0 8px 32px rgba(0,0,0,0.06)" }}>
             <div style={{ fontSize: 40, color: C.lavenderLight, lineHeight: 1, marginBottom: 12 }}>"</div>
-            <p style={{ fontSize: 16, color: C.charcoal, lineHeight: 1.8, fontStyle: "italic", marginBottom: 20 }}>
-              {DEPOIMENTOS[depIdx].texto}
-            </p>
+            <p style={{ fontSize: 16, color: C.charcoal, lineHeight: 1.8, fontStyle: "italic", marginBottom: 20 }}>{DEPOIMENTOS[depIdx].texto}</p>
             <Estrelas n={5} />
             <div style={{ marginTop: 14 }}>
               <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 15 }}>{DEPOIMENTOS[depIdx].nome}</div>
@@ -451,23 +460,22 @@ const PaginaInicial = ({ onAuth }) => {
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <div style={{ fontSize: 20, color: "white", fontWeight: 700, marginBottom: 8 }}>Instituto Thera</div>
           <p style={{ fontSize: 14, maxWidth: 320, margin: "0 auto 24px" }}>Psicologia online de qualidade, acessível e acolhedora.</p>
-          <div style={{ borderTop: "1px solid #333", paddingTop: 20, fontSize: 12 }}>
-            © 2025 Instituto Thera. Todos os direitos reservados.
-          </div>
+          <div style={{ borderTop: "1px solid #333", paddingTop: 20, fontSize: 12 }}>© 2025 Instituto Thera. Todos os direitos reservados.</div>
         </div>
       </footer>
     </div>
   );
 };
 
-const DashPaciente = ({ usuario, onSair }) => {
+// ── DASHBOARD PACIENTE ────────────────────────────────────────────────────────
+const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) => {
   const [tela, setTela] = useState("inicio");
-  const [agendamentos, setAgendamentos] = useState([
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([
     { id: 1, pro: PROFISSIONAIS[0], data: "2025-06-10", hora: "15:00", status: "confirmado" },
   ]);
   const [showAgendar, setShowAgendar] = useState(false);
   const [showChamada, setShowChamada] = useState(false);
-  const [proBuscado, setProBuscado] = useState(null);
+  const [proBuscado, setProBuscado] = useState<Profissional | null>(null);
   const [dataEsc, setDataEsc] = useState("");
   const [horaEsc, setHoraEsc] = useState("");
   const [agendouOk, setAgendouOk] = useState(false);
@@ -476,7 +484,7 @@ const DashPaciente = ({ usuario, onSair }) => {
 
   const confirmarAgendamento = () => {
     if (!proBuscado || !dataEsc || !horaEsc) return;
-    setAgendamentos(p => [...p, { id: p.length + 1, pro: proBuscado, data: dataEsc, hora: horaEsc, status: "confirmado" }]);
+    setAgendamentos((p) => [...p, { id: p.length + 1, pro: proBuscado, data: dataEsc, hora: horaEsc, status: "confirmado" }]);
     setAgendouOk(true);
     setTimeout(() => { setShowAgendar(false); setAgendouOk(false); setProBuscado(null); setDataEsc(""); setHoraEsc(""); }, 2500);
   };
@@ -488,34 +496,31 @@ const DashPaciente = ({ usuario, onSair }) => {
     { id: "perfil", ic: "👤", l: "Perfil" },
   ];
 
-  const SidebarConteudo = () => (
-    <>
-      <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${C.stone}` }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.charcoal }}>Instituto <span style={{ color: C.sage }}>Thera</span></div>
-      </div>
-      <div style={{ padding: "16px 10px", flex: 1 }}>
-        {menus.map(m => (
-          <button key={m.id} onClick={() => setTela(m.id)} className="menu-item" style={{ background: tela === m.id ? `${C.sage}18` : "transparent", color: tela === m.id ? C.sage : C.mist }}>
-            <span>{m.ic}</span>{m.l}
-          </button>
-        ))}
-      </div>
-      <div style={{ padding: "16px", borderTop: `1px solid ${C.stone}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <Av iniciais={usuario.nome.slice(0,2).toUpperCase()} tamanho={36} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.charcoal }}>{usuario.nome.split(" ")[0]}</div>
-            <div style={{ fontSize: 11, color: C.mist }}>Paciente</div>
-          </div>
-        </div>
-        <button onClick={onSair} style={{ background: "none", border: "none", fontSize: 13, color: "#EF4444", cursor: "pointer" }}>← Sair</button>
-      </div>
-    </>
-  );
-
   return (
     <div style={{ minHeight: "100vh" }}>
-      <div className="sidebar"><SidebarConteudo /></div>
+      <div className="sidebar">
+        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${C.stone}` }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: C.charcoal }}>Instituto <span style={{ color: C.sage }}>Thera</span></div>
+        </div>
+        <div style={{ padding: "16px 10px", flex: 1 }}>
+          {menus.map((m) => (
+            <button key={m.id} onClick={() => setTela(m.id)} className="menu-item" style={{ background: tela === m.id ? `${C.sage}18` : "transparent", color: tela === m.id ? C.sage : C.mist }}>
+              <span>{m.ic}</span>{m.l}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "16px", borderTop: `1px solid ${C.stone}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <Av iniciais={usuario.nome.slice(0,2).toUpperCase()} tamanho={36} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.charcoal }}>{usuario.nome.split(" ")[0]}</div>
+              <div style={{ fontSize: 11, color: C.mist }}>Paciente</div>
+            </div>
+          </div>
+          <button onClick={onSair} style={{ background: "none", border: "none", fontSize: 13, color: "#EF4444", cursor: "pointer" }}>← Sair</button>
+        </div>
+      </div>
+
       <div className="dash-content">
         {tela === "inicio" && (
           <div>
@@ -552,7 +557,7 @@ const DashPaciente = ({ usuario, onSair }) => {
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Minhas Consultas</h1>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {agendamentos.map(a => (
+              {agendamentos.map((a) => (
                 <div key={a.id} className="card">
                   <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
                     <Av iniciais={a.pro.iniciais} tamanho={44} />
@@ -573,7 +578,7 @@ const DashPaciente = ({ usuario, onSair }) => {
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Profissionais</h1>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {PROFISSIONAIS.map(p => (
+              {PROFISSIONAIS.map((p) => (
                 <div key={p.id} className="card">
                   <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: p.disponivel ? 14 : 0 }}>
                     <Av iniciais={p.iniciais} tamanho={52} />
@@ -617,7 +622,7 @@ const DashPaciente = ({ usuario, onSair }) => {
 
       <div className="bottom-nav">
         <div className="bottom-nav-inner">
-          {menus.map(m => (
+          {menus.map((m) => (
             <button key={m.id} className={`bottom-nav-btn${tela === m.id ? " active" : ""}`} onClick={() => setTela(m.id)}>
               <span style={{ fontSize: 20 }}>{m.ic}</span>
               <span>{m.l}</span>
@@ -639,7 +644,7 @@ const DashPaciente = ({ usuario, onSair }) => {
               {!proBuscado ? (
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.charcoal, marginBottom: 12 }}>Escolha o profissional:</div>
-                  {PROFISSIONAIS.filter(p => p.disponivel).map(p => (
+                  {PROFISSIONAIS.filter((p) => p.disponivel).map((p) => (
                     <button key={p.id} onClick={() => setProBuscado(p)} style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, border: `2px solid ${C.stone}`, background: "white", cursor: "pointer", width: "100%", marginBottom: 10, textAlign: "left" }}>
                       <Av iniciais={p.iniciais} tamanho={40} />
                       <div>
@@ -661,7 +666,7 @@ const DashPaciente = ({ usuario, onSair }) => {
                     <div>
                       <label>Escolha o horário:</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                        {HORARIOS.map(h => (
+                        {HORARIOS.map((h) => (
                           <button key={h} onClick={() => setHoraEsc(h)} className="time-slot" style={{ background: horaEsc === h ? C.sage : "white", color: horaEsc === h ? "white" : C.charcoal, borderColor: horaEsc === h ? C.sage : C.stone }}>
                             {h}
                           </button>
@@ -696,11 +701,11 @@ const DashPaciente = ({ usuario, onSair }) => {
           <div style={{ borderTop: `1px solid ${C.stone}`, paddingTop: 16 }}>
             <div style={{ fontSize: 14, color: C.mist, marginBottom: 10, fontWeight: 600 }}>Avalie esta sessão:</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              {[1,2,3,4,5].map(i => (
+              {[1,2,3,4,5].map((i) => (
                 <button key={i} onClick={() => setNota(i)} style={{ fontSize: 28, background: "none", border: "none", cursor: "pointer", opacity: i <= nota ? 1 : 0.3 }}>★</button>
               ))}
             </div>
-            <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder="Deixe seu comentário sobre a sessão..." style={{ marginBottom: 12, minHeight: 80, resize: "vertical" }} />
+            <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Deixe seu comentário sobre a sessão..." style={{ marginBottom: 12, minHeight: 80, resize: "vertical" }} />
             <button className="btn-primary" onClick={() => setShowChamada(false)}>Enviar Avaliação</button>
           </div>
         </Modal>
@@ -709,7 +714,8 @@ const DashPaciente = ({ usuario, onSair }) => {
   );
 };
 
-const DashProfissional = ({ usuario, onSair }) => {
+// ── DASHBOARD PROFISSIONAL ────────────────────────────────────────────────────
+const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) => {
   const [tela, setTela] = useState("agenda");
   const [showChamada, setShowChamada] = useState(false);
 
@@ -727,34 +733,31 @@ const DashProfissional = ({ usuario, onSair }) => {
     { id: "historico", ic: "📋", l: "Histórico" },
   ];
 
-  const SidebarConteudo = () => (
-    <>
-      <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${C.stone}` }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.charcoal }}>Thera <span style={{ color: C.blue }}>Pro</span></div>
-      </div>
-      <div style={{ padding: "16px 10px", flex: 1 }}>
-        {menus.map(m => (
-          <button key={m.id} onClick={() => setTela(m.id)} className="menu-item" style={{ background: tela === m.id ? `${C.blue}18` : "transparent", color: tela === m.id ? C.blue : C.mist }}>
-            <span>{m.ic}</span>{m.l}
-          </button>
-        ))}
-      </div>
-      <div style={{ padding: "16px", borderTop: `1px solid ${C.stone}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <Av iniciais="AB" tamanho={36} cor={C.blue} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.charcoal }}>Dra. Ana Beatriz</div>
-            <div style={{ fontSize: 11, color: C.mist }}>Psicóloga</div>
-          </div>
-        </div>
-        <button onClick={onSair} style={{ background: "none", border: "none", fontSize: 13, color: "#EF4444", cursor: "pointer" }}>← Sair</button>
-      </div>
-    </>
-  );
-
   return (
     <div style={{ minHeight: "100vh" }}>
-      <div className="sidebar"><SidebarConteudo /></div>
+      <div className="sidebar">
+        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${C.stone}` }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: C.charcoal }}>Thera <span style={{ color: C.blue }}>Pro</span></div>
+        </div>
+        <div style={{ padding: "16px 10px", flex: 1 }}>
+          {menus.map((m) => (
+            <button key={m.id} onClick={() => setTela(m.id)} className="menu-item" style={{ background: tela === m.id ? `${C.blue}18` : "transparent", color: tela === m.id ? C.blue : C.mist }}>
+              <span>{m.ic}</span>{m.l}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "16px", borderTop: `1px solid ${C.stone}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <Av iniciais="AB" tamanho={36} cor={C.blue} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.charcoal }}>Dra. Ana Beatriz</div>
+              <div style={{ fontSize: 11, color: C.mist }}>Psicóloga</div>
+            </div>
+          </div>
+          <button onClick={onSair} style={{ background: "none", border: "none", fontSize: 13, color: "#EF4444", cursor: "pointer" }}>← Sair</button>
+        </div>
+      </div>
+
       <div className="dash-content">
         {tela === "agenda" && (
           <div>
@@ -825,7 +828,7 @@ const DashProfissional = ({ usuario, onSair }) => {
 
       <div className="bottom-nav">
         <div className="bottom-nav-inner">
-          {menus.map(m => (
+          {menus.map((m) => (
             <button key={m.id} className={`bottom-nav-btn${tela === m.id ? " active" : ""}`} onClick={() => setTela(m.id)}>
               <span style={{ fontSize: 20 }}>{m.ic}</span>
               <span>{m.l}</span>
@@ -853,9 +856,10 @@ const DashProfissional = ({ usuario, onSair }) => {
   );
 };
 
-const DashAdmin = ({ usuario, onSair }) => {
+// ── PAINEL ADMIN ──────────────────────────────────────────────────────────────
+const DashAdmin = ({ onSair }: { onSair: () => void }) => {
   const [tela, setTela] = useState("visao");
-  const [profissionais, setProfissionais] = useState(PROFISSIONAIS);
+  const [profissionais, setProfissionais] = useState<Profissional[]>(PROFISSIONAIS);
   const [showAddPro, setShowAddPro] = useState(false);
   const [novoPro, setNovoPro] = useState({ nome: "", especialidade: "", abordagem: "" });
   const [precos, setPrecos] = useState({ avulsa: 180, mensal: 560 });
@@ -874,27 +878,24 @@ const DashAdmin = ({ usuario, onSair }) => {
     { id: "usuarios", ic: "👤", l: "Usuários" },
   ];
 
-  const SidebarConteudo = () => (
-    <>
-      <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid #3C3C3C" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "white" }}>Thera <span style={{ color: C.sage }}>Admin</span></div>
-      </div>
-      <div style={{ padding: "16px 10px", flex: 1 }}>
-        {menus.map(m => (
-          <button key={m.id} onClick={() => setTela(m.id)} className="menu-item" style={{ background: tela === m.id ? `${C.sage}33` : "transparent", color: tela === m.id ? C.sageLight : "#9CA3AF" }}>
-            <span>{m.ic}</span>{m.l}
-          </button>
-        ))}
-      </div>
-      <div style={{ padding: "16px", borderTop: "1px solid #3C3C3C" }}>
-        <button onClick={onSair} style={{ background: "none", border: "none", fontSize: 13, color: "#EF4444", cursor: "pointer" }}>← Sair</button>
-      </div>
-    </>
-  );
-
   return (
     <div style={{ minHeight: "100vh" }}>
-      <div className="sidebar-dark"><SidebarConteudo /></div>
+      <div className="sidebar-dark">
+        <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid #3C3C3C" }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "white" }}>Thera <span style={{ color: C.sage }}>Admin</span></div>
+        </div>
+        <div style={{ padding: "16px 10px", flex: 1 }}>
+          {menus.map((m) => (
+            <button key={m.id} onClick={() => setTela(m.id)} className="menu-item" style={{ background: tela === m.id ? `${C.sage}33` : "transparent", color: tela === m.id ? C.sageLight : "#9CA3AF" }}>
+              <span>{m.ic}</span>{m.l}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "16px", borderTop: "1px solid #3C3C3C" }}>
+          <button onClick={onSair} style={{ background: "none", border: "none", fontSize: 13, color: "#EF4444", cursor: "pointer" }}>← Sair</button>
+        </div>
+      </div>
+
       <div className="dash-content">
         {tela === "visao" && (
           <div>
@@ -932,7 +933,7 @@ const DashAdmin = ({ usuario, onSair }) => {
               <button className="btn-primary" style={{ width: "auto", padding: "10px 18px", fontSize: 14 }} onClick={() => setShowAddPro(true)}>+ Adicionar</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {profissionais.map(p => (
+              {profissionais.map((p) => (
                 <div key={p.id} className="card">
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                     <Av iniciais={p.iniciais} tamanho={44} />
@@ -943,7 +944,7 @@ const DashAdmin = ({ usuario, onSair }) => {
                     </div>
                     <span className="badge" style={{ background: p.disponivel ? C.sage : C.mist }}>{p.disponivel ? "Ativo" : "Inativo"}</span>
                   </div>
-                  <button onClick={() => setProfissionais(prev => prev.filter(pr => pr.id !== p.id))} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: "#FEF2F2", color: "#EF4444", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+                  <button onClick={() => setProfissionais((prev) => prev.filter((pr) => pr.id !== p.id))} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: "#FEF2F2", color: "#EF4444", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
                     Remover Profissional
                   </button>
                 </div>
@@ -961,17 +962,17 @@ const DashAdmin = ({ usuario, onSair }) => {
               </button>
             </div>
             <div className="plans-grid">
-              {[{ id: "avulsa", nome: "Sessão Avulsa", desc: "1 sessão de 50 minutos" }, { id: "mensal", nome: "Plano Mensal", desc: "4 sessões por mês" }].map(p => (
+              {[{ id: "avulsa", nome: "Sessão Avulsa", desc: "1 sessão de 50 minutos" }, { id: "mensal", nome: "Plano Mensal", desc: "4 sessões por mês" }].map((p) => (
                 <div key={p.id} className="card">
                   <h3 style={{ fontSize: 20, color: C.charcoal, marginBottom: 6 }}>{p.nome}</h3>
                   <p style={{ fontSize: 13, color: C.mist, marginBottom: 16 }}>{p.desc}</p>
                   {editandoPreco ? (
                     <div className="field">
                       <label>Preço (R$)</label>
-                      <input type="number" value={tmpPrecos[p.id]} onChange={e => setTmpPrecos(prev => ({ ...prev, [p.id]: e.target.value }))} />
+                      <input type="number" value={tmpPrecos[p.id as keyof typeof tmpPrecos]} onChange={(e) => setTmpPrecos((prev) => ({ ...prev, [p.id]: Number(e.target.value) }))} />
                     </div>
                   ) : (
-                    <div style={{ fontSize: 40, fontWeight: 700, color: C.charcoal }}>R${precos[p.id]}</div>
+                    <div style={{ fontSize: 40, fontWeight: 700, color: C.charcoal }}>R${precos[p.id as keyof typeof precos]}</div>
                   )}
                 </div>
               ))}
@@ -1026,7 +1027,7 @@ const DashAdmin = ({ usuario, onSair }) => {
 
       <div className="bottom-nav">
         <div className="bottom-nav-inner">
-          {menus.map(m => (
+          {menus.map((m) => (
             <button key={m.id} className={`bottom-nav-btn${tela === m.id ? " active" : ""}`} onClick={() => setTela(m.id)}>
               <span style={{ fontSize: 18 }}>{m.ic}</span>
               <span>{m.l}</span>
@@ -1038,12 +1039,12 @@ const DashAdmin = ({ usuario, onSair }) => {
       {showAddPro && (
         <Modal titulo="Adicionar Profissional" onFechar={() => setShowAddPro(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <Campo label="Nome completo" valor={novoPro.nome} onChange={v => setNovoPro(p => ({ ...p, nome: v }))} placeholder="Dr./Dra. Nome Sobrenome" obrigatorio />
-            <Campo label="Especialidade" valor={novoPro.especialidade} onChange={v => setNovoPro(p => ({ ...p, especialidade: v }))} placeholder="Ex: Ansiedade e Depressão" obrigatorio />
-            <Campo label="Abordagem terapêutica" valor={novoPro.abordagem} onChange={v => setNovoPro(p => ({ ...p, abordagem: v }))} placeholder="Ex: TCC, Psicanálise, EMDR" obrigatorio />
+            <Campo label="Nome completo" valor={novoPro.nome} onChange={(v) => setNovoPro((p) => ({ ...p, nome: v }))} placeholder="Dr./Dra. Nome Sobrenome" obrigatorio />
+            <Campo label="Especialidade" valor={novoPro.especialidade} onChange={(v) => setNovoPro((p) => ({ ...p, especialidade: v }))} placeholder="Ex: Ansiedade e Depressão" obrigatorio />
+            <Campo label="Abordagem terapêutica" valor={novoPro.abordagem} onChange={(v) => setNovoPro((p) => ({ ...p, abordagem: v }))} placeholder="Ex: TCC, Psicanálise, EMDR" obrigatorio />
             <button className="btn-primary" onClick={() => {
               if (!novoPro.nome) return;
-              setProfissionais(p => [...p, { ...novoPro, id: p.length + 1, crp: "06/XXXXXX", nota: 5.0, avaliacoes: 0, iniciais: novoPro.nome.split(" ").slice(-2).map((w) => w[0]).join("").toUpperCase(), disponivel: true }]);
+              setProfissionais((p) => [...p, { ...novoPro, id: p.length + 1, crp: "06/XXXXXX", nota: 5.0, avaliacoes: 0, iniciais: novoPro.nome.split(" ").slice(-2).map((w) => w[0]).join("").toUpperCase(), disponivel: true }]);
               setShowAddPro(false);
               setNovoPro({ nome: "", especialidade: "", abordagem: "" });
             }}>Adicionar Profissional</button>
@@ -1054,17 +1055,18 @@ const DashAdmin = ({ usuario, onSair }) => {
   );
 };
 
+// ── APP PRINCIPAL ─────────────────────────────────────────────────────────────
 export default function App() {
-  const [usuario, setUsuario] = useState(null);
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [modoAuth, setModoAuth] = useState("login");
 
-  const autenticar = (dados) => { setUsuario(dados); setShowAuth(false); };
+  const autenticar = (dados: Usuario) => { setUsuario(dados); setShowAuth(false); };
   const sair = () => setUsuario(null);
-  const abrirAuth = (modo) => { setModoAuth(modo); setShowAuth(true); };
+  const abrirAuth = (modo: string) => { setModoAuth(modo); setShowAuth(true); };
 
   if (usuario) {
-    if (usuario.perfil === "admin") return (<><style>{globalStyles}</style><DashAdmin usuario={usuario} onSair={sair} /></>);
+    if (usuario.perfil === "admin") return (<><style>{globalStyles}</style><DashAdmin onSair={sair} /></>);
     if (usuario.perfil === "profissional") return (<><style>{globalStyles}</style><DashProfissional usuario={usuario} onSair={sair} /></>);
     return (<><style>{globalStyles}</style><DashPaciente usuario={usuario} onSair={sair} /></>);
   }
