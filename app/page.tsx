@@ -963,7 +963,7 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
                 ["👥","Pacientes Cadastrados","" + usuariosAdmin.length],
                 ["🩺","Profissionais Ativos","" + profissionais.filter(p=>p.disponivel).length],
                 ["📅","Total de Agendamentos","" + agendamentosAdmin.length],
-                ["💰","Faturamento Estimado","R$" + (agendamentosAdmin.length * 180).toLocaleString("pt-BR")],
+                ["💰","Faturamento Estimado","R$" + (agendamentosAdmin.length * (planos.find(p => p.id === "avulsa")?.preco ?? 180)).toLocaleString("pt-BR")],
               ].map(([ic,l,v]) => (
                 <div key={l} className="stat-card">
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -1067,7 +1067,7 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <span className="badge" style={{ background: C.sage }}>{a.status}</span>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: C.charcoal, marginTop: 4 }}>R$180</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.charcoal, marginTop: 4 }}>R${planos.find(p => p.id === "avulsa")?.preco ?? "—"}</div>
                     </div>
                   </div>
                 ))}
