@@ -260,16 +260,24 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: (
 const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
   const [depIdx, setDepIdx] = useState(0);
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
+  const [precoBanco, setPrecoBanco] = useState<Record<string, number>>({ avulsa: 180, mensal: 560 });
 
   useEffect(() => {
     supabase.from("profissionais").select("*").order("nome").then(({ data }) => { if (data) setProfissionais(data); });
+    supabase.from("planos").select("*").then(({ data }) => {
+      if (data) {
+        const map: Record<string, number> = {};
+        data.forEach((p: Plano) => { map[p.id] = p.preco; });
+        setPrecoBanco(map);
+      }
+    });
     const t = setInterval(() => setDepIdx((p) => (p + 1) % DEPOIMENTOS.length), 4000);
     return () => clearInterval(t);
   }, []);
 
   const planos = [
-    { id: "avulsa", nome: "Sessão Avulsa", preco: 180, precoPorSessao: null, desc: "Ideal para quem quer experimentar a terapia online", itens: ["1 sessão de 50 minutos","Escolha de profissional","Videochamada segura","Reagendamento gratuito"], destaque: false },
-    { id: "mensal", nome: "Plano Mensal", preco: 560, precoPorSessao: 140, desc: "Para quem busca um processo terapêutico consistente", itens: ["4 sessões por mês","Economia de R$80/mês","Profissional fixo","Suporte via chat","Histórico completo"], destaque: true },
+    { id: "avulsa", nome: "Sessão Avulsa", preco: precoBanco["avulsa"] ?? 180, precoPorSessao: null, desc: "Ideal para quem quer experimentar a terapia online", itens: ["1 sessão de 50 minutos","Escolha de profissional","Videochamada segura","Reagendamento gratuito"], destaque: false },
+    { id: "mensal", nome: "Plano Mensal", preco: precoBanco["mensal"] ?? 560, precoPorSessao: Math.round((precoBanco["mensal"] ?? 560) / 4), desc: "Para quem busca um processo terapêutico consistente", itens: ["4 sessões por mês","Profissional fixo","Suporte via chat","Histórico completo"], destaque: true },
   ];
 
   return (
