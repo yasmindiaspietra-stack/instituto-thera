@@ -49,6 +49,7 @@ const globalStyles = `
   label { display: block; font-size: 13px; font-weight: 700; color: #2C2C2C; margin-bottom: 6px; }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .stat-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
   .avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; flex-shrink: 0; }
   .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: white; text-transform: uppercase; letter-spacing: 0.05em; }
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
@@ -91,7 +92,7 @@ const globalStyles = `
 `;
 
 interface Profissional {
-  id: number;
+  id: string;
   nome: string;
   crp: string;
   especialidade: string;
@@ -104,11 +105,14 @@ interface Profissional {
 
 interface Agendamento {
   id: string;
-  pro_nome: string;
-  pro_iniciais: string;
+  paciente_id: string;
+  profissional_nome: string;
+  profissional_iniciais: string;
   data: string;
   hora: string;
   status: string;
+  criado_em?: string;
+  paciente_nome?: string;
 }
 
 interface Usuario {
@@ -118,12 +122,21 @@ interface Usuario {
   perfil: string;
 }
 
-const PROFISSIONAIS: Profissional[] = [
-  { id: 1, nome: "Dra. Ana Beatriz Carvalho", crp: "06/123456", especialidade: "Ansiedade e Depressão", abordagem: "TCC", nota: 4.9, avaliacoes: 127, iniciais: "AB", disponivel: true },
-  { id: 2, nome: "Dr. Felipe Mendes", crp: "06/234567", especialidade: "Relacionamentos e Família", abordagem: "Psicanálise", nota: 4.8, avaliacoes: 89, iniciais: "FM", disponivel: true },
-  { id: 3, nome: "Dra. Camila Rocha", crp: "06/345678", especialidade: "Trauma e TEPT", abordagem: "EMDR", nota: 5.0, avaliacoes: 64, iniciais: "CR", disponivel: false },
-  { id: 4, nome: "Dr. Lucas Alves", crp: "06/456789", especialidade: "Autoestima e Desenvolvimento", abordagem: "Humanista", nota: 4.7, avaliacoes: 203, iniciais: "LA", disponivel: true },
-];
+interface PerfilDB {
+  id: string;
+  nome: string;
+  cpf?: string;
+  perfil: string;
+  plano?: string;
+  criado_em?: string;
+}
+
+interface Plano {
+  id: string;
+  nome: string;
+  preco: number;
+  descricao?: string;
+}
 
 const HORARIOS = ["08:00","09:00","10:00","11:00","14:00","15:00","16:00","17:00","18:00","19:00"];
 
@@ -162,7 +175,7 @@ const Campo = ({ label, tipo = "text", valor, onChange, placeholder, obrigatorio
   </div>
 );
 
-// ── AUTENTICAÇÃO REAL COM SUPABASE ────────────────────────────────────────────
+// ── AUTENTICAÇÃO ──────────────────────────────────────────────────────────────
 const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: () => void; onAutenticar: (u: Usuario) => void }) => {
   const [aba, setAba] = useState(modo);
   const [form, setForm] = useState({ nome: "", email: "", cpf: "", senha: "" });
@@ -175,7 +188,6 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: (
   const entrar = async () => {
     setErro(""); setSucesso(""); setCarregando(true);
     try {
-      // Acesso demo para admin e profissional
       if (form.email === "admin@thera.com" && form.senha === "admin123") {
         onAutenticar({ id: "admin", nome: "Administrador", email: form.email, perfil: "admin" });
         return;
@@ -184,20 +196,11 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: (
         onAutenticar({ id: "psi", nome: "Dra. Ana Beatriz", email: form.email, perfil: "profissional" });
         return;
       }
-      // Login real com Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: form.email,
-        password: form.senha,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.senha });
       if (error) { setErro("E-mail ou senha incorretos. Tente novamente."); return; }
       if (data.user) {
         const { data: perfil } = await supabase.from("perfis").select("*").eq("id", data.user.id).single();
-        onAutenticar({
-          id: data.user.id,
-          nome: perfil?.nome || form.email,
-          email: form.email,
-          perfil: perfil?.perfil || "paciente",
-        });
+        onAutenticar({ id: data.user.id, nome: perfil?.nome || form.email, email: form.email, perfil: perfil?.perfil || "paciente" });
       }
     } catch {
       setErro("Erro ao conectar. Tente novamente.");
@@ -215,22 +218,11 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: (
       setErro("A senha deve ter pelo menos 6 caracteres."); setCarregando(false); return;
     }
     try {
-      // Criar conta no Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.senha,
-      });
+      const { data, error } = await supabase.auth.signUp({ email: form.email, password: form.senha });
       if (error) { setErro("Erro ao criar conta: " + error.message); return; }
       if (data.user) {
-        // Salvar perfil no banco
-        await supabase.from("perfis").insert({
-          id: data.user.id,
-          nome: form.nome,
-          cpf: form.cpf,
-          perfil: "paciente",
-          plano: "avulsa",
-        });
-        setSucesso("Conta criada com sucesso! Verifique seu e-mail para confirmar o cadastro.");
+        await supabase.from("perfis").insert({ id: data.user.id, nome: form.nome, cpf: form.cpf, perfil: "paciente", plano: "avulsa" });
+        setSucesso("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
       }
     } catch {
       setErro("Erro ao criar conta. Tente novamente.");
@@ -251,14 +243,11 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: (
         <Campo label="E-mail" tipo="email" valor={form.email} onChange={f("email")} placeholder="seu@email.com" obrigatorio />
         {aba === "cadastro" && <Campo label="CPF" valor={form.cpf} onChange={f("cpf")} placeholder="000.000.000-00" obrigatorio />}
         <Campo label="Senha" tipo="password" valor={form.senha} onChange={f("senha")} placeholder="••••••••" obrigatorio />
-
         {erro && <div style={{ color: "#EF4444", fontSize: 13, background: "#FEF2F2", padding: "10px 14px", borderRadius: 8 }}>{erro}</div>}
         {sucesso && <div style={{ color: "#16A34A", fontSize: 13, background: "#DCFCE7", padding: "10px 14px", borderRadius: 8 }}>{sucesso}</div>}
-
         <div style={{ background: C.cream, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: C.mist }}>
           <strong>Demo:</strong> admin@thera.com / admin123 · psi@thera.com / psi123
         </div>
-
         <button className="btn-primary" onClick={aba === "login" ? entrar : cadastrar}>
           {carregando ? "Aguarde..." : aba === "login" ? "Entrar" : "Criar conta"}
         </button>
@@ -270,15 +259,18 @@ const ModalAuth = ({ modo, onFechar, onAutenticar }: { modo: string; onFechar: (
 // ── HOMEPAGE ──────────────────────────────────────────────────────────────────
 const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
   const [depIdx, setDepIdx] = useState(0);
+  const [profissionais, setProfissionais] = useState<Profissional[]>([]);
+
+  useEffect(() => {
+    supabase.from("profissionais").select("*").order("nome").then(({ data }) => { if (data) setProfissionais(data); });
+    const t = setInterval(() => setDepIdx((p) => (p + 1) % DEPOIMENTOS.length), 4000);
+    return () => clearInterval(t);
+  }, []);
+
   const planos = [
     { id: "avulsa", nome: "Sessão Avulsa", preco: 180, precoPorSessao: null, desc: "Ideal para quem quer experimentar a terapia online", itens: ["1 sessão de 50 minutos","Escolha de profissional","Videochamada segura","Reagendamento gratuito"], destaque: false },
     { id: "mensal", nome: "Plano Mensal", preco: 560, precoPorSessao: 140, desc: "Para quem busca um processo terapêutico consistente", itens: ["4 sessões por mês","Economia de R$80/mês","Profissional fixo","Suporte via chat","Histórico completo"], destaque: true },
   ];
-
-  useEffect(() => {
-    const t = setInterval(() => setDepIdx((p) => (p + 1) % DEPOIMENTOS.length), 4000);
-    return () => clearInterval(t);
-  }, []);
 
   return (
     <div>
@@ -307,143 +299,111 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
               </div>
             </div>
             <div className="hero-visual">
-              <div style={{ background: "white", borderRadius: 24, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.1)" }}>
+              <div style={{ background: "white", borderRadius: 24, padding: 28, boxShadow: "0 16px 60px rgba(0,0,0,0.1)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                  <Av iniciais="AB" tamanho={48} />
+                  <Av iniciais="AB" tamanho={52} />
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: C.charcoal }}>Dra. Ana Beatriz</div>
-                    <div style={{ fontSize: 12, color: C.mist }}>Psicóloga Clínica • CRP 06/123456</div>
+                    <div style={{ fontWeight: 700, color: C.charcoal }}>Dra. Ana Beatriz</div>
+                    <div style={{ color: C.sage, fontSize: 13 }}>Psicóloga Clínica • TCC</div>
+                    <Estrelas n={5} />
                   </div>
                 </div>
-                <div style={{ background: C.cream, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: C.mist, marginBottom: 6 }}>Próxima sessão</div>
-                  <div style={{ fontWeight: 700, fontSize: 18, color: C.charcoal }}>Hoje, 15:00</div>
-                  <div style={{ fontSize: 13, color: C.sage, marginTop: 4, fontWeight: 600 }}>● Videochamada pronta</div>
+                <div style={{ background: C.cream, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, color: C.mist, marginBottom: 8, fontWeight: 600 }}>Próximos horários disponíveis</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {["09:00","10:00","14:00","15:00"].map((h) => (
+                      <div key={h} style={{ padding: "6px 12px", borderRadius: 8, background: "white", fontSize: 13, fontWeight: 700, color: C.charcoal, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>{h}</div>
+                    ))}
+                  </div>
                 </div>
-                {["Ansiedade","Autoestima","Relacionamentos"].map((t) => (
-                  <div key={t} style={{ background: `${C.lavenderLight}55`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: C.charcoal, marginBottom: 8 }}>{t}</div>
-                ))}
-                <button className="btn-primary" style={{ marginTop: 8 }}>Entrar na Sessão →</button>
+                <button className="btn-primary" onClick={() => onAuth("cadastro")}>Agendar com Ana Beatriz</button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section style={{ padding: "60px 16px", background: "white" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
-            <div style={{ fontSize: 12, color: C.sage, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>Processo Simples</div>
-            <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", color: C.charcoal }}>Como funciona</h2>
-          </div>
-          <div className="steps-grid">
-            {[
-              { n: "01", ic: "🎯", t: "Escolha seu plano", d: "Selecione entre sessão avulsa ou plano mensal" },
-              { n: "02", ic: "👤", t: "Crie sua conta", d: "Cadastro rápido e seguro em menos de 2 minutos" },
-              { n: "03", ic: "🗓️", t: "Escolha o profissional", d: "Encontre o psicólogo ideal e agende o horário" },
-              { n: "04", ic: "💬", t: "Inicie a sessão", d: "Entre na videochamada e comece sua transformação" },
-            ].map(({ n, ic, t, d }) => (
-              <div key={n} style={{ background: C.cream, borderRadius: 16, padding: 20, position: "relative" }}>
-                <div style={{ fontSize: 28, marginBottom: 12 }}>{ic}</div>
-                <div style={{ fontSize: 40, fontWeight: 700, color: C.stone, position: "absolute", top: 10, right: 14, lineHeight: 1 }}>{n}</div>
-                <h3 style={{ fontSize: 15, color: C.charcoal, marginBottom: 8 }}>{t}</h3>
-                <p style={{ fontSize: 13, color: C.mist, lineHeight: 1.6 }}>{d}</p>
-              </div>
-            ))}
-          </div>
+      <section style={{ padding: "48px 16px", maxWidth: 1100, margin: "0 auto" }}>
+        <h2 style={{ fontSize: "clamp(22px, 3vw, 34px)", color: C.charcoal, textAlign: "center", marginBottom: 8 }}>Como funciona</h2>
+        <p style={{ color: C.mist, textAlign: "center", marginBottom: 32 }}>Simples, rápido e seguro</p>
+        <div className="steps-grid">
+          {[["🔍","Escolha","Selecione um profissional que se encaixe no que você precisa"],["📅","Agende","Marque o horário que melhor se adapta à sua rotina"],["💻","Conecte","Entre na videochamada pelo próprio site, sem downloads"],["🌿","Evolua","Acompanhe seu progresso ao longo do processo terapêutico"]].map(([ic,t,d]) => (
+            <div key={t} style={{ textAlign: "center", padding: 20 }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>{ic}</div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: C.charcoal, marginBottom: 8 }}>{t}</h3>
+              <p style={{ fontSize: 13, color: C.mist, lineHeight: 1.6 }}>{d}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section style={{ padding: "60px 16px", background: C.cream }}>
+      <section style={{ padding: "48px 16px", background: C.cream }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <div style={{ fontSize: 12, color: C.sage, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>Nossa Equipe</div>
-            <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", color: C.charcoal }}>Profissionais certificados</h2>
-          </div>
+          <h2 style={{ fontSize: "clamp(22px, 3vw, 34px)", color: C.charcoal, textAlign: "center", marginBottom: 8 }}>Nossos Profissionais</h2>
+          <p style={{ color: C.mist, textAlign: "center", marginBottom: 32 }}>Psicólogos experientes e especializados</p>
           <div className="pros-grid">
-            {PROFISSIONAIS.map((p) => (
-              <div key={p.id} style={{ background: "white", borderRadius: 16, padding: 20, textAlign: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, position: "relative" }}>
-                  <Av iniciais={p.iniciais} tamanho={60} />
-                  {p.disponivel && <div style={{ position: "absolute", bottom: 2, right: "calc(50% - 38px)", width: 12, height: 12, borderRadius: "50%", background: "#22C55E", border: "2px solid white" }} />}
+            {profissionais.slice(0,4).map((p) => (
+              <div key={p.id} className="card" style={{ textAlign: "center" }}>
+                <Av iniciais={p.iniciais} tamanho={60} cor={C.sage} />
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 14 }}>{p.nome}</div>
+                  <div style={{ color: C.sage, fontSize: 12, fontWeight: 600, margin: "4px 0" }}>{p.abordagem}</div>
+                  <div style={{ color: C.mist, fontSize: 12, marginBottom: 8 }}>{p.especialidade}</div>
+                  <Estrelas n={Math.round(p.nota)} />
+                  <div style={{ fontSize: 11, color: C.mist, margin: "4px 0 10px" }}>{p.avaliacoes} avaliações</div>
+                  <span className="badge" style={{ background: p.disponivel ? C.sage : C.mist }}>{p.disponivel ? "Disponível" : "Ocupado"}</span>
                 </div>
-                <h3 style={{ fontSize: 13, color: C.charcoal, marginBottom: 4, lineHeight: 1.3 }}>{p.nome}</h3>
-                <p style={{ fontSize: 12, color: C.sage, margin: "0 0 4px", fontWeight: 600 }}>{p.abordagem}</p>
-                <p style={{ fontSize: 12, color: C.mist, margin: "0 0 10px" }}>{p.especialidade}</p>
-                <Estrelas n={Math.round(p.nota)} />
-                <p style={{ fontSize: 11, color: C.mist, margin: "4px 0 14px" }}>{p.nota} ({p.avaliacoes} avaliações)</p>
-                <button className="btn-primary" style={{ fontSize: 13, padding: "10px 16px" }} onClick={() => onAuth("cadastro")}>Agendar</button>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section style={{ padding: "60px 16px", background: "white" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <div style={{ fontSize: 12, color: C.sage, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>Investimento</div>
-            <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", color: C.charcoal }}>Planos e preços</h2>
-          </div>
-          <div className="plans-grid">
-            {planos.map((p) => (
-              <div key={p.id} style={{ borderRadius: 20, padding: 28, background: p.destaque ? C.charcoal : "white", border: p.destaque ? "none" : `1px solid ${C.stone}`, boxShadow: p.destaque ? "0 16px 48px rgba(44,44,44,0.2)" : "0 2px 12px rgba(0,0,0,0.05)", position: "relative" }}>
-                {p.destaque && <div style={{ position: "absolute", top: 16, right: 16 }}><span className="badge" style={{ background: C.gold }}>Mais Popular</span></div>}
-                <h3 style={{ fontSize: 20, color: p.destaque ? "white" : C.charcoal, marginBottom: 6 }}>{p.nome}</h3>
-                <p style={{ fontSize: 13, color: p.destaque ? "#9CA3AF" : C.mist, marginBottom: 20 }}>{p.desc}</p>
-                <div style={{ marginBottom: 20 }}>
-                  <span style={{ fontSize: 44, fontWeight: 700, color: p.destaque ? "white" : C.charcoal }}>R${p.preco}</span>
-                  <span style={{ fontSize: 14, color: p.destaque ? "#9CA3AF" : C.mist }}>{p.id === "mensal" ? "/mês" : "/sessão"}</span>
-                  {p.precoPorSessao && <div style={{ fontSize: 12, color: C.sage, marginTop: 4, fontWeight: 700 }}>= R${p.precoPorSessao} por sessão</div>}
-                </div>
-                <div style={{ marginBottom: 24 }}>
-                  {p.itens.map((item) => (
-                    <div key={item} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
-                      <div style={{ width: 18, height: 18, borderRadius: "50%", background: p.destaque ? C.sage : `${C.sage}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                        <span style={{ fontSize: 10, color: p.destaque ? "white" : C.sage, fontWeight: 700 }}>✓</span>
-                      </div>
-                      <span style={{ fontSize: 13, color: p.destaque ? "#D1D5DB" : C.charcoal, lineHeight: 1.4 }}>{item}</span>
-                    </div>
-                  ))}
-                </div>
-                <button className="btn-primary" style={{ background: p.destaque ? C.gold : C.sage }} onClick={() => onAuth("cadastro")}>Contratar {p.nome}</button>
+      <section style={{ padding: "48px 16px", maxWidth: 1100, margin: "0 auto" }}>
+        <h2 style={{ fontSize: "clamp(22px, 3vw, 34px)", color: C.charcoal, textAlign: "center", marginBottom: 8 }}>Planos e Preços</h2>
+        <p style={{ color: C.mist, textAlign: "center", marginBottom: 32 }}>Escolha o que funciona para você</p>
+        <div className="plans-grid" style={{ maxWidth: 700, margin: "0 auto" }}>
+          {planos.map((p) => (
+            <div key={p.id} className="card" style={{ border: p.destaque ? `2px solid ${C.sage}` : "2px solid transparent", position: "relative" }}>
+              {p.destaque && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: C.sage, color: "white", fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 20 }}>MAIS POPULAR</div>}
+              <h3 style={{ fontSize: 20, color: C.charcoal, marginBottom: 6 }}>{p.nome}</h3>
+              <p style={{ fontSize: 13, color: C.mist, marginBottom: 16 }}>{p.desc}</p>
+              <div style={{ marginBottom: 16 }}>
+                <span style={{ fontSize: 36, fontWeight: 700, color: C.charcoal }}>R${p.preco}</span>
+                {p.precoPorSessao && <div style={{ fontSize: 12, color: C.mist }}>R${p.precoPorSessao}/sessão</div>}
               </div>
-            ))}
-          </div>
+              <ul style={{ listStyle: "none", marginBottom: 20 }}>
+                {p.itens.map((item) => (
+                  <li key={item} style={{ fontSize: 13, color: C.mist, padding: "5px 0", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: C.sage, fontWeight: 700 }}>✓</span>{item}
+                  </li>
+                ))}
+              </ul>
+              <button className="btn-primary" onClick={() => onAuth("cadastro")}>Começar agora</button>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section style={{ padding: "60px 16px", background: C.cream }}>
-        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontSize: 12, color: C.sage, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 10 }}>Depoimentos</div>
-          <h2 style={{ fontSize: "clamp(22px, 4vw, 34px)", color: C.charcoal, marginBottom: 36 }}>O que dizem nossos pacientes</h2>
-          <div style={{ background: "white", borderRadius: 20, padding: "36px 24px", boxShadow: "0 8px 32px rgba(0,0,0,0.06)" }}>
-            <div style={{ fontSize: 40, color: C.lavenderLight, lineHeight: 1, marginBottom: 12 }}>"</div>
-            <p style={{ fontSize: 16, color: C.charcoal, lineHeight: 1.8, fontStyle: "italic", marginBottom: 20 }}>{DEPOIMENTOS[depIdx].texto}</p>
-            <Estrelas n={5} />
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 15 }}>{DEPOIMENTOS[depIdx].nome}</div>
-              <div style={{ fontSize: 12, color: C.mist }}>{DEPOIMENTOS[depIdx].plano}</div>
+      <section style={{ padding: "48px 16px", background: C.cream }}>
+        <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
+          <h2 style={{ fontSize: "clamp(22px, 3vw, 34px)", color: C.charcoal, marginBottom: 32 }}>O que dizem nossos pacientes</h2>
+          <div className="card">
+            <div style={{ fontSize: 32, color: C.gold, marginBottom: 12 }}>❝</div>
+            <p style={{ fontSize: 16, color: C.mist, lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>{DEPOIMENTOS[depIdx].texto}</p>
+            <div style={{ fontWeight: 700, color: C.charcoal }}>{DEPOIMENTOS[depIdx].nome}</div>
+            <div style={{ fontSize: 12, color: C.mist }}>{DEPOIMENTOS[depIdx].plano}</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
+              {DEPOIMENTOS.map((_, i) => (
+                <button key={i} onClick={() => setDepIdx(i)} style={{ width: i === depIdx ? 20 : 8, height: 8, borderRadius: 4, border: "none", cursor: "pointer", background: i === depIdx ? C.sage : C.stone, transition: "all 0.3s" }} />
+              ))}
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
-            {DEPOIMENTOS.map((_, i) => (
-              <button key={i} onClick={() => setDepIdx(i)} style={{ width: i === depIdx ? 24 : 8, height: 8, borderRadius: 4, background: i === depIdx ? C.sage : C.stone, border: "none", cursor: "pointer", transition: "all 0.3s" }} />
-            ))}
-          </div>
         </div>
       </section>
 
-      <section style={{ padding: "60px 16px", background: `linear-gradient(135deg, ${C.charcoal}, ${C.blue})`, textAlign: "center" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto" }}>
-          <h2 style={{ fontSize: "clamp(24px, 4vw, 44px)", color: "white", marginBottom: 16, lineHeight: 1.2 }}>Sua jornada começa com um passo</h2>
-          <p style={{ color: "#9CA3AF", fontSize: 16, marginBottom: 32, lineHeight: 1.6 }}>Milhares de pessoas já transformaram suas vidas com o suporte de nossa equipe especializada.</p>
-          <button className="btn-primary" style={{ background: C.gold, maxWidth: 360, margin: "0 auto" }} onClick={() => onAuth("cadastro")}>Agendar Minha Primeira Sessão</button>
-        </div>
-      </section>
-
-      <footer style={{ background: "#1A1A1A", padding: "40px 16px", color: "#9CA3AF" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
+      <footer style={{ background: C.charcoal, padding: "32px 16px", textAlign: "center", color: C.mist }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ fontSize: 20, color: "white", fontWeight: 700, marginBottom: 8 }}>Instituto Thera</div>
           <p style={{ fontSize: 14, maxWidth: 320, margin: "0 auto 24px" }}>Psicologia online de qualidade, acessível e acolhedora.</p>
           <div style={{ borderTop: "1px solid #333", paddingTop: 20, fontSize: 12 }}>© 2025 Instituto Thera. Todos os direitos reservados.</div>
@@ -453,10 +413,11 @@ const PaginaInicial = ({ onAuth }: { onAuth: (modo: string) => void }) => {
   );
 };
 
-// ── DASHBOARD PACIENTE COM SUPABASE ───────────────────────────────────────────
+// ── DASHBOARD PACIENTE ────────────────────────────────────────────────────────
 const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) => {
   const [tela, setTela] = useState("inicio");
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [showAgendar, setShowAgendar] = useState(false);
   const [showChamada, setShowChamada] = useState(false);
   const [proBuscado, setProBuscado] = useState<Profissional | null>(null);
@@ -467,15 +428,12 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
   const [feedback, setFeedback] = useState("");
   const [carregando, setCarregando] = useState(false);
 
-  // Carrega agendamentos do banco
   useEffect(() => {
     const carregar = async () => {
-      const { data } = await supabase
-        .from("agendamentos")
-        .select("*")
-        .eq("paciente_id", usuario.id)
-        .order("criado_em", { ascending: false });
-      if (data) setAgendamentos(data);
+      const { data: ags } = await supabase.from("agendamentos").select("*").eq("paciente_id", usuario.id).order("criado_em", { ascending: false });
+      if (ags) setAgendamentos(ags);
+      const { data: pros } = await supabase.from("profissionais").select("*").order("nome");
+      if (pros) setProfissionais(pros);
     };
     if (usuario.id !== "admin" && usuario.id !== "psi") carregar();
   }, [usuario.id]);
@@ -483,33 +441,24 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
   const confirmarAgendamento = async () => {
     if (!proBuscado || !dataEsc || !horaEsc) return;
     setCarregando(true);
-    const novoAgendamento = {
+    const { data, error } = await supabase.from("agendamentos").insert({
       paciente_id: usuario.id,
+      paciente_nome: usuario.nome,
       profissional_nome: proBuscado.nome,
       profissional_iniciais: proBuscado.iniciais,
       data: dataEsc,
       hora: horaEsc,
       status: "confirmado",
-    };
-    const { data, error } = await supabase.from("agendamentos").insert(novoAgendamento).select().single();
-    if (!error && data) {
-      setAgendamentos((p) => [data, ...p]);
-    }
+    }).select().single();
+    if (!error && data) setAgendamentos((p) => [data, ...p]);
     setCarregando(false);
     setAgendouOk(true);
     setTimeout(() => { setShowAgendar(false); setAgendouOk(false); setProBuscado(null); setDataEsc(""); setHoraEsc(""); }, 2500);
   };
 
   const enviarFeedback = async (agendamentoId: string) => {
-    await supabase.from("feedbacks").insert({
-      paciente_id: usuario.id,
-      agendamento_id: agendamentoId,
-      nota,
-      comentario: feedback,
-    });
-    setShowChamada(false);
-    setNota(0);
-    setFeedback("");
+    await supabase.from("feedbacks").insert({ paciente_id: usuario.id, agendamento_id: agendamentoId, nota, comentario: feedback });
+    setShowChamada(false); setNota(0); setFeedback("");
   };
 
   const menus = [
@@ -562,9 +511,9 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
               <div className="card" style={{ marginBottom: 20 }}>
                 <h2 style={{ fontSize: 18, color: C.charcoal, marginBottom: 16 }}>Próxima Consulta</h2>
                 <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
-                  <Av iniciais={agendamentos[0].pro_iniciais} tamanho={48} />
+                  <Av iniciais={agendamentos[0].profissional_iniciais} tamanho={48} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 15 }}>{agendamentos[0].pro_nome}</div>
+                    <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 15 }}>{agendamentos[0].profissional_nome}</div>
                     <div style={{ color: C.mist, fontSize: 13 }}>{agendamentos[0].data} às {agendamentos[0].hora}</div>
                     <div style={{ color: "#22C55E", fontSize: 12, fontWeight: 700, marginTop: 2 }}>● Confirmado</div>
                   </div>
@@ -590,9 +539,9 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                 {agendamentos.map((a) => (
                   <div key={a.id} className="card">
                     <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
-                      <Av iniciais={a.pro_iniciais} tamanho={44} />
+                      <Av iniciais={a.profissional_iniciais} tamanho={44} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, color: C.charcoal }}>{a.pro_nome}</div>
+                        <div style={{ fontWeight: 700, color: C.charcoal }}>{a.profissional_nome}</div>
                         <div style={{ color: C.mist, fontSize: 13 }}>{a.data} às {a.hora}</div>
                       </div>
                       <span className="badge" style={{ background: C.sage }}>Confirmado</span>
@@ -609,7 +558,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Profissionais</h1>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {PROFISSIONAIS.map((p) => (
+              {profissionais.map((p) => (
                 <div key={p.id} className="card">
                   <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: p.disponivel ? 14 : 0 }}>
                     <Av iniciais={p.iniciais} tamanho={52} />
@@ -668,14 +617,14 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
             <div style={{ textAlign: "center", padding: "32px 0" }}>
               <div style={{ fontSize: 56, marginBottom: 12 }}>✅</div>
               <h3 style={{ fontSize: 22, color: C.charcoal, marginBottom: 8 }}>Consulta Agendada!</h3>
-              <p style={{ color: C.mist }}>Sua consulta foi salva com sucesso!</p>
+              <p style={{ color: C.mist }}>Sua consulta foi salva com sucesso no banco!</p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               {!proBuscado ? (
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.charcoal, marginBottom: 12 }}>Escolha o profissional:</div>
-                  {PROFISSIONAIS.filter((p) => p.disponivel).map((p) => (
+                  {profissionais.filter((p) => p.disponivel).map((p) => (
                     <button key={p.id} onClick={() => setProBuscado(p)} style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, border: `2px solid ${C.stone}`, background: "white", cursor: "pointer", width: "100%", marginBottom: 10, textAlign: "left" }}>
                       <Av iniciais={p.iniciais} tamanho={40} />
                       <div>
@@ -698,16 +647,12 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                       <label>Escolha o horário:</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
                         {HORARIOS.map((h) => (
-                          <button key={h} onClick={() => setHoraEsc(h)} className="time-slot" style={{ background: horaEsc === h ? C.sage : "white", color: horaEsc === h ? "white" : C.charcoal, borderColor: horaEsc === h ? C.sage : C.stone }}>
-                            {h}
-                          </button>
+                          <button key={h} onClick={() => setHoraEsc(h)} className="time-slot" style={{ background: horaEsc === h ? C.sage : "white", color: horaEsc === h ? "white" : C.charcoal, borderColor: horaEsc === h ? C.sage : C.stone }}>{h}</button>
                         ))}
                       </div>
                     </div>
                   )}
-                  <button className="btn-primary" onClick={confirmarAgendamento}>
-                    {carregando ? "Salvando..." : "Confirmar Agendamento"}
-                  </button>
+                  <button className="btn-primary" onClick={confirmarAgendamento}>{carregando ? "Salvando..." : "Confirmar Agendamento"}</button>
                 </>
               )}
             </div>
@@ -751,14 +696,11 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
 const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) => {
   const [tela, setTela] = useState("agenda");
   const [showChamada, setShowChamada] = useState(false);
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
 
-  const agenda = [
-    { hora: "09:00", paciente: "Marina Silva", status: "confirmado" },
-    { hora: "10:00", paciente: "Roberto Mendes", status: "confirmado" },
-    { hora: "14:00", paciente: "Carla Figueiredo", status: "pendente" },
-    { hora: "15:00", paciente: "João Santos", status: "confirmado" },
-    { hora: "16:00", paciente: "Ana Costa", status: "confirmado" },
-  ];
+  useEffect(() => {
+    supabase.from("agendamentos").select("*").eq("profissional_nome", usuario.nome).order("data", { ascending: true }).then(({ data }) => { if (data) setAgendamentos(data); });
+  }, [usuario.nome]);
 
   const menus = [
     { id: "agenda", ic: "📅", l: "Agenda" },
@@ -796,7 +738,7 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Minha Agenda</h1>
             <div className="stats-grid" style={{ marginBottom: 24 }}>
-              {[["📅","Sessões Hoje","5"],["📊","Este Mês","18"],["⭐","Avaliação","4.9"]].map(([ic,l,v]) => (
+              {[["📅","Total de Sessões","" + agendamentos.length],["✅","Confirmadas","" + agendamentos.filter(a=>a.status==="confirmado").length],["⭐","Avaliação","4.9"]].map(([ic,l,v]) => (
                 <div key={l} className="stat-card">
                   <div style={{ fontSize: 22 }}>{ic}</div>
                   <div style={{ fontSize: 22, fontWeight: 700, color: C.charcoal, margin: "8px 0 4px" }}>{v}</div>
@@ -805,14 +747,17 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
               ))}
             </div>
             <div className="card">
-              <h2 style={{ fontSize: 18, color: C.charcoal, marginBottom: 16 }}>Agenda de hoje</h2>
-              {agenda.map((a, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: i < agenda.length - 1 ? `1px solid ${C.stone}` : "none" }}>
+              <h2 style={{ fontSize: 18, color: C.charcoal, marginBottom: 16 }}>Consultas agendadas</h2>
+              {agendamentos.length === 0 ? (
+                <p style={{ color: C.mist, textAlign: "center", padding: 20 }}>Nenhuma consulta agendada ainda.</p>
+              ) : agendamentos.map((a, i) => (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: i < agendamentos.length - 1 ? `1px solid ${C.stone}` : "none" }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: C.charcoal, width: 50, flexShrink: 0 }}>{a.hora}</div>
-                  <Av iniciais={a.paciente.slice(0,2)} tamanho={38} cor={C.lavender} />
+                  <Av iniciais={(a.paciente_nome || "PA").slice(0,2).toUpperCase()} tamanho={38} cor={C.lavender} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, color: C.charcoal, fontSize: 14 }}>{a.paciente}</div>
-                    <span className="badge" style={{ background: a.status === "confirmado" ? C.sage : C.gold }}>{a.status === "confirmado" ? "Confirmado" : "Pendente"}</span>
+                    <div style={{ fontWeight: 600, color: C.charcoal, fontSize: 14 }}>{a.paciente_nome || "Paciente"}</div>
+                    <div style={{ fontSize: 12, color: C.mist }}>{a.data}</div>
+                    <span className="badge" style={{ background: a.status === "confirmado" ? C.sage : C.gold }}>{a.status}</span>
                   </div>
                   <button className="btn-primary" style={{ width: "auto", padding: "8px 14px", fontSize: 13 }} onClick={() => setShowChamada(true)}>Iniciar</button>
                 </div>
@@ -825,15 +770,16 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Pacientes</h1>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {agenda.map((a, i) => (
-                <div key={i} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <Av iniciais={a.paciente.slice(0,2)} tamanho={48} cor={C.lavender} />
+              {agendamentos.map((a) => (
+                <div key={a.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Av iniciais={(a.paciente_nome || "PA").slice(0,2).toUpperCase()} tamanho={48} cor={C.lavender} />
                   <div>
-                    <div style={{ fontWeight: 700, color: C.charcoal }}>{a.paciente}</div>
-                    <div style={{ color: C.mist, fontSize: 13 }}>Plano Mensal • Próxima sessão: {a.hora}</div>
+                    <div style={{ fontWeight: 700, color: C.charcoal }}>{a.paciente_nome || "Paciente"}</div>
+                    <div style={{ color: C.mist, fontSize: 13 }}>{a.data} às {a.hora}</div>
                   </div>
                 </div>
               ))}
+              {agendamentos.length === 0 && <p style={{ color: C.mist }}>Nenhum paciente ainda.</p>}
             </div>
           </div>
         )}
@@ -842,16 +788,16 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Histórico</h1>
             <div className="card">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: i < 7 ? `1px solid ${C.stone}` : "none" }}>
+              {agendamentos.length === 0 ? <p style={{ color: C.mist }}>Nenhuma sessão no histórico.</p> : agendamentos.map((a, i) => (
+                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: i < agendamentos.length - 1 ? `1px solid ${C.stone}` : "none" }}>
                   <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <Av iniciais={["MS","RM","CF","JS"][i%4]} tamanho={38} cor={C.lavender} />
+                    <Av iniciais={(a.paciente_nome || "PA").slice(0,2).toUpperCase()} tamanho={38} cor={C.lavender} />
                     <div>
-                      <div style={{ fontWeight: 600, color: C.charcoal, fontSize: 14 }}>{["Marina Silva","Roberto Mendes","Carla Figueiredo","João Santos"][i%4]}</div>
-                      <div style={{ color: C.mist, fontSize: 12 }}>2025-06-{i+1} às {9+(i%4)}:00</div>
+                      <div style={{ fontWeight: 600, color: C.charcoal, fontSize: 14 }}>{a.paciente_nome || "Paciente"}</div>
+                      <div style={{ color: C.mist, fontSize: 12 }}>{a.data} às {a.hora}</div>
                     </div>
                   </div>
-                  <span className="badge" style={{ background: C.sage }}>Concluído</span>
+                  <span className="badge" style={{ background: C.sage }}>{a.status}</span>
                 </div>
               ))}
             </div>
@@ -889,27 +835,80 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
   );
 };
 
-// ── PAINEL ADMIN ──────────────────────────────────────────────────────────────
+// ── PAINEL ADMIN COMPLETO COM SUPABASE ────────────────────────────────────────
 const DashAdmin = ({ onSair }: { onSair: () => void }) => {
   const [tela, setTela] = useState("visao");
-  const [profissionais, setProfissionais] = useState<Profissional[]>(PROFISSIONAIS);
+  const [profissionais, setProfissionais] = useState<Profissional[]>([]);
+  const [agendamentosAdmin, setAgendamentosAdmin] = useState<Agendamento[]>([]);
+  const [usuariosAdmin, setUsuariosAdmin] = useState<PerfilDB[]>([]);
+  const [planos, setPlanos] = useState<Plano[]>([]);
   const [showAddPro, setShowAddPro] = useState(false);
   const [novoPro, setNovoPro] = useState({ nome: "", especialidade: "", abordagem: "" });
-  const [precos, setPrecos] = useState({ avulsa: 180, mensal: 560 });
   const [editandoPreco, setEditandoPreco] = useState(false);
-  const [tmpPrecos, setTmpPrecos] = useState({ avulsa: 180, mensal: 560 });
-  const [totalUsuarios, setTotalUsuarios] = useState(0);
-  const [totalAgendamentos, setTotalAgendamentos] = useState(0);
+  const [tmpPrecos, setTmpPrecos] = useState<Record<string, number>>({});
+  const [carregando, setCarregando] = useState(false);
+  const [msgOk, setMsgOk] = useState("");
 
-  useEffect(() => {
-    const carregar = async () => {
-      const { count: u } = await supabase.from("perfis").select("*", { count: "exact", head: true });
-      const { count: a } = await supabase.from("agendamentos").select("*", { count: "exact", head: true });
-      setTotalUsuarios(u || 0);
-      setTotalAgendamentos(a || 0);
-    };
-    carregar();
-  }, []);
+  const carregarDados = async () => {
+    const [{ data: pros }, { data: ags }, { data: users }, { data: pls }] = await Promise.all([
+      supabase.from("profissionais").select("*").order("nome"),
+      supabase.from("agendamentos").select("*").order("criado_em", { ascending: false }),
+      supabase.from("perfis").select("*").order("criado_em", { ascending: false }),
+      supabase.from("planos").select("*"),
+    ]);
+    if (pros) setProfissionais(pros);
+    if (ags) setAgendamentosAdmin(ags);
+    if (users) setUsuariosAdmin(users);
+    if (pls) {
+      setPlanos(pls);
+      const precoMap: Record<string, number> = {};
+      pls.forEach((p: Plano) => { precoMap[p.id] = p.preco; });
+      setTmpPrecos(precoMap);
+    }
+  };
+
+  useEffect(() => { carregarDados(); }, []);
+
+  const adicionarProfissional = async () => {
+    if (!novoPro.nome) return;
+    setCarregando(true);
+    const iniciais = novoPro.nome.split(" ").filter(Boolean).slice(-2).map((w: string) => w[0]).join("").toUpperCase();
+    const { data, error } = await supabase.from("profissionais").insert({
+      nome: novoPro.nome,
+      especialidade: novoPro.especialidade,
+      abordagem: novoPro.abordagem,
+      crp: "A preencher",
+      nota: 5.0,
+      avaliacoes: 0,
+      iniciais,
+      disponivel: true,
+    }).select().single();
+    if (!error && data) {
+      setProfissionais((p) => [...p, data]);
+      setMsgOk("Profissional adicionado com sucesso!");
+      setTimeout(() => setMsgOk(""), 3000);
+    }
+    setCarregando(false);
+    setShowAddPro(false);
+    setNovoPro({ nome: "", especialidade: "", abordagem: "" });
+  };
+
+  const removerProfissional = async (id: string) => {
+    await supabase.from("profissionais").delete().eq("id", id);
+    setProfissionais((p) => p.filter((pr) => pr.id !== id));
+  };
+
+  const salvarPrecos = async () => {
+    setCarregando(true);
+    for (const [id, preco] of Object.entries(tmpPrecos)) {
+      await supabase.from("planos").update({ preco }).eq("id", id);
+    }
+    setPlanos((prev) => prev.map((p) => ({ ...p, preco: tmpPrecos[p.id] ?? p.preco })));
+    setEditandoPreco(false);
+    setMsgOk("Preços atualizados com sucesso!");
+    setTimeout(() => setMsgOk(""), 3000);
+    setCarregando(false);
+  };
 
   const dados = [65,72,80,74,88,95,102,98,115,108,130,142];
   const maxVal = Math.max(...dados);
@@ -942,20 +941,26 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
       </div>
 
       <div className="dash-content">
+        {msgOk && (
+          <div style={{ background: "#DCFCE7", color: "#16A34A", padding: "12px 16px", borderRadius: 10, marginBottom: 20, fontWeight: 700, fontSize: 14 }}>
+            ✅ {msgOk}
+          </div>
+        )}
+
         {tela === "visao" && (
           <div>
             <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 20 }}>Visão Geral</h1>
             <div className="admin-stats" style={{ marginBottom: 24 }}>
               {[
-                ["👥","Total de Pacientes", "" + totalUsuarios,"+real"],
-                ["🩺","Profissionais Ativos","" + profissionais.filter(p=>p.disponivel).length,"+real"],
-                ["📅","Consultas no Banco","" + totalAgendamentos,"+real"],
-                ["💰","Faturamento","R$" + (totalAgendamentos * 180).toLocaleString("pt-BR"),"+real"],
-              ].map(([ic,l,v,d]) => (
+                ["👥","Pacientes Cadastrados","" + usuariosAdmin.length],
+                ["🩺","Profissionais Ativos","" + profissionais.filter(p=>p.disponivel).length],
+                ["📅","Total de Agendamentos","" + agendamentosAdmin.length],
+                ["💰","Faturamento Estimado","R$" + (agendamentosAdmin.length * 180).toLocaleString("pt-BR")],
+              ].map(([ic,l,v]) => (
                 <div key={l} className="stat-card">
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                     <span style={{ fontSize: 22 }}>{ic}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#22C55E", background: "#DCFCE7", padding: "2px 8px", borderRadius: 20 }}>{d}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#22C55E", background: "#DCFCE7", padding: "2px 8px", borderRadius: 20 }}>ao vivo</span>
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: C.charcoal, marginBottom: 4 }}>{v}</div>
                   <div style={{ fontSize: 12, color: C.mist }}>{l}</div>
@@ -994,7 +999,7 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
                     </div>
                     <span className="badge" style={{ background: p.disponivel ? C.sage : C.mist }}>{p.disponivel ? "Ativo" : "Inativo"}</span>
                   </div>
-                  <button onClick={() => setProfissionais((prev) => prev.filter((pr) => pr.id !== p.id))} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: "#FEF2F2", color: "#EF4444", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+                  <button onClick={() => removerProfissional(p.id)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: "#FEF2F2", color: "#EF4444", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
                     Remover Profissional
                   </button>
                 </div>
@@ -1007,29 +1012,29 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h1 style={{ fontSize: "clamp(20px, 4vw, 28px)", color: C.charcoal }}>Planos e Preços</h1>
-              <button className="btn-outline" style={{ width: "auto", padding: "10px 18px", fontSize: 14 }} onClick={() => { setEditandoPreco(!editandoPreco); setTmpPrecos({ ...precos }); }}>
+              <button className="btn-outline" style={{ width: "auto", padding: "10px 18px", fontSize: 14 }} onClick={() => setEditandoPreco(!editandoPreco)}>
                 {editandoPreco ? "Cancelar" : "Editar Preços"}
               </button>
             </div>
             <div className="plans-grid">
-              {[{ id: "avulsa", nome: "Sessão Avulsa", desc: "1 sessão de 50 minutos" }, { id: "mensal", nome: "Plano Mensal", desc: "4 sessões por mês" }].map((p) => (
+              {planos.map((p) => (
                 <div key={p.id} className="card">
                   <h3 style={{ fontSize: 20, color: C.charcoal, marginBottom: 6 }}>{p.nome}</h3>
-                  <p style={{ fontSize: 13, color: C.mist, marginBottom: 16 }}>{p.desc}</p>
+                  <p style={{ fontSize: 13, color: C.mist, marginBottom: 16 }}>{p.descricao}</p>
                   {editandoPreco ? (
                     <div className="field">
                       <label>Preço (R$)</label>
-                      <input type="number" value={tmpPrecos[p.id as keyof typeof tmpPrecos]} onChange={(e) => setTmpPrecos((prev) => ({ ...prev, [p.id]: Number(e.target.value) }))} />
+                      <input type="number" value={tmpPrecos[p.id] ?? p.preco} onChange={(e) => setTmpPrecos((prev) => ({ ...prev, [p.id]: Number(e.target.value) }))} />
                     </div>
                   ) : (
-                    <div style={{ fontSize: 40, fontWeight: 700, color: C.charcoal }}>R${precos[p.id as keyof typeof precos]}</div>
+                    <div style={{ fontSize: 40, fontWeight: 700, color: C.charcoal }}>R${p.preco}</div>
                   )}
                 </div>
               ))}
             </div>
             {editandoPreco && (
-              <button className="btn-primary" style={{ marginTop: 20, maxWidth: 300 }} onClick={() => { setPrecos({ ...tmpPrecos }); setEditandoPreco(false); }}>
-                Salvar Preços
+              <button className="btn-primary" style={{ marginTop: 20, maxWidth: 300 }} onClick={salvarPrecos}>
+                {carregando ? "Salvando..." : "Salvar Preços no Banco"}
               </button>
             )}
           </div>
@@ -1038,39 +1043,53 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
         {tela === "agendamentos" && (
           <div>
             <h1 style={{ fontSize: "clamp(20px, 4vw, 28px)", color: C.charcoal, marginBottom: 20 }}>Agendamentos</h1>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <Av iniciais={["MS","RM","CF","JS"][i%4]} tamanho={40} cor={C.lavender} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 14 }}>{["Marina Silva","Roberto Mendes","Carla Figueiredo","João Santos"][i%4]}</div>
-                    <div style={{ color: C.mist, fontSize: 12 }}>Dra. Ana Beatriz • 2025-06-{10+i} às {9+(i%4)}:00</div>
+            {agendamentosAdmin.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: 40 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
+                <p style={{ color: C.mist }}>Nenhum agendamento no banco ainda.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {agendamentosAdmin.map((a) => (
+                  <div key={a.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <Av iniciais={(a.paciente_nome || "P").slice(0,2).toUpperCase()} tamanho={40} cor={C.lavender} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 14 }}>{a.paciente_nome || "Paciente"}</div>
+                      <div style={{ color: C.mist, fontSize: 12 }}>{a.profissional_nome} • {a.data} às {a.hora}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <span className="badge" style={{ background: C.sage }}>{a.status}</span>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.charcoal, marginTop: 4 }}>R$180</div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <span className="badge" style={{ background: C.sage }}>Confirmado</span>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.charcoal, marginTop: 4 }}>R$180</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {tela === "usuarios" && (
           <div>
-            <h1 style={{ fontSize: "clamp(20px, 4vw, 28px)", color: C.charcoal, marginBottom: 20 }}>Usuários</h1>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <Av iniciais={["MS","RM","CF","JS","AB"][i%5]} tamanho={40} cor={C.lavender} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 14 }}>{["Marina Silva","Roberto Mendes","Carla Figueiredo","João Santos","Ana Beatriz"][i%5]}</div>
-                    <div style={{ color: C.mist, fontSize: 12 }}>usuario{i}@email.com</div>
+            <h1 style={{ fontSize: "clamp(20px, 4vw, 28px)", color: C.charcoal, marginBottom: 20 }}>Usuários Cadastrados</h1>
+            {usuariosAdmin.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: 40 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>👤</div>
+                <p style={{ color: C.mist }}>Nenhum usuário cadastrado ainda.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {usuariosAdmin.map((u) => (
+                  <div key={u.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <Av iniciais={u.nome.slice(0,2).toUpperCase()} tamanho={40} cor={C.lavender} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 14 }}>{u.nome}</div>
+                      <div style={{ color: C.mist, fontSize: 12 }}>{u.cpf ? `CPF: ${u.cpf}` : "CPF não informado"}</div>
+                    </div>
+                    <span className="badge" style={{ background: u.plano === "mensal" ? C.blue : C.sage }}>{u.plano || "avulsa"}</span>
                   </div>
-                  <span className="badge" style={{ background: i%2===0 ? C.blue : C.sage }}>{i%2===0 ? "Mensal" : "Avulso"}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1092,12 +1111,7 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
             <Campo label="Nome completo" valor={novoPro.nome} onChange={(v) => setNovoPro((p) => ({ ...p, nome: v }))} placeholder="Dr./Dra. Nome Sobrenome" obrigatorio />
             <Campo label="Especialidade" valor={novoPro.especialidade} onChange={(v) => setNovoPro((p) => ({ ...p, especialidade: v }))} placeholder="Ex: Ansiedade e Depressão" obrigatorio />
             <Campo label="Abordagem terapêutica" valor={novoPro.abordagem} onChange={(v) => setNovoPro((p) => ({ ...p, abordagem: v }))} placeholder="Ex: TCC, Psicanálise, EMDR" obrigatorio />
-            <button className="btn-primary" onClick={() => {
-              if (!novoPro.nome) return;
-              setProfissionais((p) => [...p, { ...novoPro, id: p.length + 1, crp: "06/XXXXXX", nota: 5.0, avaliacoes: 0, iniciais: novoPro.nome.split(" ").slice(-2).map((w) => w[0]).join("").toUpperCase(), disponivel: true }]);
-              setShowAddPro(false);
-              setNovoPro({ nome: "", especialidade: "", abordagem: "" });
-            }}>Adicionar Profissional</button>
+            <button className="btn-primary" onClick={adicionarProfissional}>{carregando ? "Salvando..." : "Adicionar Profissional"}</button>
           </div>
         </Modal>
       )}
@@ -1112,18 +1126,12 @@ export default function App() {
   const [modoAuth, setModoAuth] = useState("login");
   const [carregando, setCarregando] = useState(true);
 
-  // Verifica se usuário já está logado
   useEffect(() => {
     const verificar = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session?.user) {
         const { data: perfil } = await supabase.from("perfis").select("*").eq("id", data.session.user.id).single();
-        setUsuario({
-          id: data.session.user.id,
-          nome: perfil?.nome || data.session.user.email || "Usuário",
-          email: data.session.user.email || "",
-          perfil: perfil?.perfil || "paciente",
-        });
+        setUsuario({ id: data.session.user.id, nome: perfil?.nome || data.session.user.email || "Usuário", email: data.session.user.email || "", perfil: perfil?.perfil || "paciente" });
       }
       setCarregando(false);
     };
@@ -1131,12 +1139,7 @@ export default function App() {
   }, []);
 
   const autenticar = (dados: Usuario) => { setUsuario(dados); setShowAuth(false); };
-
-  const sair = async () => {
-    await supabase.auth.signOut();
-    setUsuario(null);
-  };
-
+  const sair = async () => { await supabase.auth.signOut(); setUsuario(null); };
   const abrirAuth = (modo: string) => { setModoAuth(modo); setShowAuth(true); };
 
   if (carregando) {
