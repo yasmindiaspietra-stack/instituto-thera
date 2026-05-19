@@ -140,6 +140,13 @@ interface Plano {
 
 const HORARIOS = ["08:00","09:00","10:00","11:00","14:00","15:00","16:00","17:00","18:00","19:00"];
 
+
+const abrirJitsi = (agendamentoId: string, nomeUsuario: string) => {
+  const sala = "thera-sessao-" + agendamentoId.replace(/-/g, "").slice(0, 12);
+  const url = `https://meet.jit.si/${sala}#userInfo.displayName="${encodeURIComponent(nomeUsuario)}"&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false`;
+  window.open(url, "_blank");
+};
+
 const DEPOIMENTOS = [
   { nome: "Marina S.", texto: "A plataforma transformou minha relação com a terapia. Consegui finalmente começar meu processo de forma acessível e confortável.", plano: "Plano Mensal" },
   { nome: "Roberto M.", texto: "É incrível como é simples agendar, e a qualidade dos profissionais é excepcional. Recomendo para todos.", plano: "Sessão Avulsa" },
@@ -526,7 +533,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                     <div style={{ color: "#22C55E", fontSize: 12, fontWeight: 700, marginTop: 2 }}>● Confirmado</div>
                   </div>
                 </div>
-                <button className="btn-primary" onClick={() => setShowChamada(true)}>Entrar na Sessão →</button>
+                <button className="btn-primary" onClick={() => abrirJitsi(agendamentos[0]?.id || "demo", usuario.nome)}>Entrar na Sessão →</button>
               </div>
             )}
             <button className="btn-outline" onClick={() => setShowAgendar(true)}>+ Agendar Nova Consulta</button>
@@ -554,7 +561,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                       </div>
                       <span className="badge" style={{ background: C.sage }}>Confirmado</span>
                     </div>
-                    <button className="btn-primary" onClick={() => setShowChamada(true)}>Entrar na Sessão</button>
+                    <button className="btn-primary" onClick={() => abrirJitsi(a.id, usuario.nome)}>Entrar na Sessão</button>
                   </div>
                 ))}
               </div>
@@ -669,26 +676,16 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
       )}
 
       {showChamada && (
-        <Modal titulo="Sessão em Andamento" onFechar={() => setShowChamada(false)}>
-          <div style={{ background: "#1A1A1A", borderRadius: 14, aspectRatio: "4/3", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, position: "relative", overflow: "hidden" }}>
-            <Av iniciais="AB" tamanho={72} />
-            <div style={{ position: "absolute", bottom: 12, right: 12, width: 90, height: 70, background: "#2C2C2C", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Av iniciais={usuario.nome.slice(0,2).toUpperCase()} tamanho={36} cor={C.lavender} />
-            </div>
-            <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(0,0,0,0.5)", color: "white", padding: "3px 10px", borderRadius: 20, fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#EF4444" }} />Ao vivo
-            </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 20 }}>
-            {[["🎤","Microfone"],["📹","Câmera"],["💬","Chat"],["🔴","Encerrar"]].map(([ic, l], i) => (
-              <button key={l} onClick={() => i === 3 && setShowChamada(false)} style={{ width: 52, height: 52, borderRadius: "50%", background: i === 3 ? "#EF4444" : C.cream, border: "none", fontSize: 20, cursor: "pointer" }}>{ic}</button>
-            ))}
+        <Modal titulo="Avaliar Sessão" onFechar={() => setShowChamada(false)}>
+          <div style={{ textAlign: "center", padding: "8px 0 20px" }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>⭐</div>
+            <p style={{ color: C.mist, fontSize: 14 }}>A sessão foi aberta em uma nova aba. Após encerrar, deixe sua avaliação:</p>
           </div>
           <div style={{ borderTop: `1px solid ${C.stone}`, paddingTop: 16 }}>
-            <div style={{ fontSize: 14, color: C.mist, marginBottom: 10, fontWeight: 600 }}>Avalie esta sessão:</div>
+            <div style={{ fontSize: 14, color: C.mist, marginBottom: 10, fontWeight: 600 }}>Como foi sua sessão?</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               {[1,2,3,4,5].map((i) => (
-                <button key={i} onClick={() => setNota(i)} style={{ fontSize: 28, background: "none", border: "none", cursor: "pointer", opacity: i <= nota ? 1 : 0.3 }}>★</button>
+                <button key={i} onClick={() => setNota(i)} style={{ fontSize: 32, background: "none", border: "none", cursor: "pointer", opacity: i <= nota ? 1 : 0.3 }}>★</button>
               ))}
             </div>
             <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Deixe seu comentário sobre a sessão..." style={{ marginBottom: 12, minHeight: 80, resize: "vertical" }} />
@@ -767,7 +764,7 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
                     <div style={{ fontSize: 12, color: C.mist }}>{a.data}</div>
                     <span className="badge" style={{ background: a.status === "confirmado" ? C.sage : C.gold }}>{a.status}</span>
                   </div>
-                  <button className="btn-primary" style={{ width: "auto", padding: "8px 14px", fontSize: 13 }} onClick={() => setShowChamada(true)}>Iniciar</button>
+                  <button className="btn-primary" style={{ width: "auto", padding: "8px 14px", fontSize: 13 }} onClick={() => abrirJitsi(a.id, usuario.nome)}>Iniciar →</button>
                 </div>
               ))}
             </div>
@@ -824,21 +821,7 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
         </div>
       </div>
 
-      {showChamada && (
-        <Modal titulo="Sessão em Andamento" onFechar={() => setShowChamada(false)}>
-          <div style={{ background: "#1A1A1A", borderRadius: 14, aspectRatio: "4/3", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, position: "relative" }}>
-            <Av iniciais="MS" tamanho={72} cor={C.lavender} />
-            <div style={{ position: "absolute", bottom: 12, right: 12, width: 90, height: 70, background: "#2C2C2C", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Av iniciais="AB" tamanho={36} cor={C.blue} />
-            </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
-            {["🎤","📹","💬","🔴"].map((ic, i) => (
-              <button key={i} onClick={() => i === 3 && setShowChamada(false)} style={{ width: 52, height: 52, borderRadius: "50%", background: i === 3 ? "#EF4444" : C.cream, border: "none", fontSize: 20, cursor: "pointer" }}>{ic}</button>
-            ))}
-          </div>
-        </Modal>
-      )}
+
     </div>
   );
 };
