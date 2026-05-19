@@ -707,6 +707,11 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
     supabase.from("agendamentos").select("*").eq("profissional_nome", usuario.nome).order("data", { ascending: true }).then(({ data }) => { if (data) setAgendamentos(data); });
   }, [usuario.nome]);
 
+  const marcarAtendido = async (id: string) => {
+    await supabase.from("agendamentos").update({ status: "atendido" }).eq("id", id);
+    setAgendamentos((prev) => prev.map((a) => a.id === id ? { ...a, status: "atendido" } : a));
+  };
+
   const menus = [
     { id: "agenda", ic: "📅", l: "Agenda" },
     { id: "pacientes", ic: "👥", l: "Pacientes" },
@@ -764,7 +769,16 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
                     <div style={{ fontSize: 12, color: C.mist }}>{a.data}</div>
                     <span className="badge" style={{ background: a.status === "confirmado" ? C.sage : C.gold }}>{a.status}</span>
                   </div>
-                  <button className="btn-primary" style={{ width: "auto", padding: "8px 14px", fontSize: 13 }} onClick={() => abrirJitsi(a.id, usuario.nome)}>Iniciar →</button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {a.status !== "atendido" && (
+                      <button className="btn-primary" style={{ width: "auto", padding: "8px 14px", fontSize: 13 }} onClick={() => abrirJitsi(a.id, usuario.nome)}>Iniciar →</button>
+                    )}
+                    {a.status !== "atendido" ? (
+                      <button onClick={() => marcarAtendido(a.id)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "#DCFCE7", color: "#16A34A", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>✓ Atendido</button>
+                    ) : (
+                      <span className="badge" style={{ background: "#16A34A", fontSize: 12 }}>✓ Atendido</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
