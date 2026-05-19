@@ -147,6 +147,49 @@ const abrirJitsi = (agendamentoId: string, nomeUsuario: string) => {
   window.open(url, "_blank");
 };
 
+const enviarEmailConfirmacao = async (pacienteEmail: string, pacienteNome: string, profissionalNome: string, data: string, hora: string) => {
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "Instituto Thera <onboarding@resend.dev>",
+        to: [pacienteEmail],
+        subject: "Consulta confirmada — Instituto Thera",
+        html: `
+          <div style="font-family: Georgia, serif; max-width: 520px; margin: 0 auto; background: #FDFCFA; border-radius: 16px; overflow: hidden; border: 1px solid #E8E2DA;">
+            <div style="background: #7B9E87; padding: 28px 32px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 22px;">Instituto Thera</h1>
+              <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 14px;">Plataforma de Psicologia Online</p>
+            </div>
+            <div style="padding: 32px;">
+              <h2 style="color: #2C2C2C; font-size: 20px; margin-bottom: 8px;">Consulta confirmada! ✅</h2>
+              <p style="color: #6B7280; font-size: 15px; line-height: 1.6;">Olá, <strong>${pacienteNome}</strong>! Sua consulta foi agendada com sucesso.</p>
+              <div style="background: #F8F5F0; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                <p style="margin: 0 0 8px; font-size: 14px; color: #6B7280;"><strong style="color: #2C2C2C;">Profissional:</strong> ${profissionalNome}</p>
+                <p style="margin: 0 0 8px; font-size: 14px; color: #6B7280;"><strong style="color: #2C2C2C;">Data:</strong> ${data}</p>
+                <p style="margin: 0; font-size: 14px; color: #6B7280;"><strong style="color: #2C2C2C;">Horário:</strong> ${hora}</p>
+              </div>
+              <p style="color: #6B7280; font-size: 14px; line-height: 1.6;">Para entrar na sessão no dia e horário marcados, acesse o site e clique em <strong>Entrar na Sessão</strong>.</p>
+              <div style="text-align: center; margin-top: 24px;">
+                <a href="https://instituto-thera.vercel.app" style="background: #7B9E87; color: white; padding: 12px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">Acessar Plataforma</a>
+              </div>
+            </div>
+            <div style="padding: 16px 32px; border-top: 1px solid #E8E2DA; text-align: center;">
+              <p style="color: #9CA3AF; font-size: 12px; margin: 0;">© 2025 Instituto Thera. Todos os direitos reservados.</p>
+            </div>
+          </div>
+        `,
+      }),
+    });
+  } catch {
+    console.log("Erro ao enviar e-mail — verifique a chave Resend.");
+  }
+};
+
 const DEPOIMENTOS = [
   { nome: "Marina S.", texto: "A plataforma transformou minha relação com a terapia. Consegui finalmente começar meu processo de forma acessível e confortável.", plano: "Plano Mensal" },
   { nome: "Roberto M.", texto: "É incrível como é simples agendar, e a qualidade dos profissionais é excepcional. Recomendo para todos.", plano: "Sessão Avulsa" },
@@ -465,7 +508,11 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
       hora: horaEsc,
       status: "confirmado",
     }).select().single();
-    if (!error && data) setAgendamentos((p) => [data, ...p]);
+    if (!error && data) {
+      setAgendamentos((p) => [data, ...p]);
+      // Envia e-mail de confirmacao
+      await enviarEmailConfirmacao(usuario.email, usuario.nome, proBuscado.nome, dataEsc, horaEsc);
+    }
     setCarregando(false);
     setAgendouOk(true);
     setTimeout(() => { setShowAgendar(false); setAgendouOk(false); setProBuscado(null); setDataEsc(""); setHoraEsc(""); }, 2500);
@@ -530,10 +577,14 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 15 }}>{agendamentos[0].profissional_nome}</div>
                     <div style={{ color: C.mist, fontSize: 13 }}>{agendamentos[0].data} às {agendamentos[0].hora}</div>
-                    <div style={{ color: "#22C55E", fontSize: 12, fontWeight: 700, marginTop: 2 }}>● Confirmado</div>
+                    <div style={{ color: agendamentos[0].status === "atendido" ? C.mist : "#22C55E", fontSize: 12, fontWeight: 700, marginTop: 2 }}>
+                      {agendamentos[0].status === "atendido" ? "✓ Atendido" : "● Confirmado"}
+                    </div>
                   </div>
                 </div>
-                <button className="btn-primary" onClick={() => abrirJitsi(agendamentos[0]?.id || "demo", usuario.nome)}>Entrar na Sessão →</button>
+                {agendamentos[0].status !== "atendido" && (
+                  <button className="btn-primary" onClick={() => abrirJitsi(agendamentos[0]?.id || "demo", usuario.nome)}>Entrar na Sessão →</button>
+                )}
               </div>
             )}
             <button className="btn-outline" onClick={() => setShowAgendar(true)}>+ Agendar Nova Consulta</button>
@@ -553,15 +604,19 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {agendamentos.map((a) => (
                   <div key={a.id} className="card">
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: a.status !== "atendido" ? 14 : 0 }}>
                       <Av iniciais={a.profissional_iniciais} tamanho={44} />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700, color: C.charcoal }}>{a.profissional_nome}</div>
                         <div style={{ color: C.mist, fontSize: 13 }}>{a.data} às {a.hora}</div>
                       </div>
-                      <span className="badge" style={{ background: C.sage }}>Confirmado</span>
+                      <span className="badge" style={{ background: a.status === "atendido" ? "#16A34A" : C.sage }}>
+                        {a.status === "atendido" ? "✓ Atendido" : "Confirmado"}
+                      </span>
                     </div>
-                    <button className="btn-primary" onClick={() => abrirJitsi(a.id, usuario.nome)}>Entrar na Sessão</button>
+                    {a.status !== "atendido" && (
+                      <button className="btn-primary" onClick={() => abrirJitsi(a.id, usuario.nome)}>Entrar na Sessão</button>
+                    )}
                   </div>
                 ))}
               </div>
