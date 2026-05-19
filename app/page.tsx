@@ -851,7 +851,8 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
   const [usuariosAdmin, setUsuariosAdmin] = useState<PerfilDB[]>([]);
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [showAddPro, setShowAddPro] = useState(false);
-  const [novoPro, setNovoPro] = useState({ nome: "", especialidade: "", abordagem: "" });
+  const [novoPro, setNovoPro] = useState({ nome: "", especialidade: "", abordagem: "", email: "", senha: "" });
+  const [msgErro, setMsgErro] = useState("");
   const [editandoPreco, setEditandoPreco] = useState(false);
   const [tmpPrecos, setTmpPrecos] = useState<Record<string, number>>({});
   const [carregando, setCarregando] = useState(false);
@@ -878,27 +879,55 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
   useEffect(() => { carregarDados(); }, []);
 
   const adicionarProfissional = async () => {
-    if (!novoPro.nome) return;
+    if (!novoPro.nome || !novoPro.email || !novoPro.senha) {
+      setMsgErro("Preencha nome, e-mail e senha."); return;
+    }
+    if (novoPro.senha.length < 6) {
+      setMsgErro("A senha deve ter pelo menos 6 caracteres."); return;
+    }
     setCarregando(true);
-    const iniciais = novoPro.nome.split(" ").filter(Boolean).slice(-2).map((w: string) => w[0]).join("").toUpperCase();
-    const { data, error } = await supabase.from("profissionais").insert({
-      nome: novoPro.nome,
-      especialidade: novoPro.especialidade,
-      abordagem: novoPro.abordagem,
-      crp: "A preencher",
-      nota: 5.0,
-      avaliacoes: 0,
-      iniciais,
-      disponivel: true,
-    }).select().single();
-    if (!error && data) {
-      setProfissionais((p) => [...p, data]);
-      setMsgOk("Profissional adicionado com sucesso!");
-      setTimeout(() => setMsgOk(""), 3000);
+    setMsgErro("");
+    try {
+      // 1. Cria conta no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: novoPro.email,
+        password: novoPro.senha,
+      });
+      if (authError) { setMsgErro("Erro ao criar conta: " + authError.message); setCarregando(false); return; }
+      if (!authData.user) { setMsgErro("Erro ao criar usuário."); setCarregando(false); return; }
+
+      // 2. Salva perfil como profissional
+      await supabase.from("perfis").insert({
+        id: authData.user.id,
+        nome: novoPro.nome,
+        perfil: "profissional",
+        plano: "avulsa",
+      });
+
+      // 3. Adiciona na tabela de profissionais
+      const iniciais = novoPro.nome.split(" ").filter(Boolean).slice(-2).map((w: string) => w[0]).join("").toUpperCase();
+      const { data, error } = await supabase.from("profissionais").insert({
+        nome: novoPro.nome,
+        especialidade: novoPro.especialidade,
+        abordagem: novoPro.abordagem,
+        crp: "A preencher",
+        nota: 5.0,
+        avaliacoes: 0,
+        iniciais,
+        disponivel: true,
+      }).select().single();
+
+      if (!error && data) {
+        setProfissionais((p) => [...p, data]);
+        setMsgOk("Profissional adicionado! Login: " + novoPro.email + " / " + novoPro.senha);
+        setTimeout(() => setMsgOk(""), 6000);
+      }
+    } catch {
+      setMsgErro("Erro inesperado. Tente novamente.");
     }
     setCarregando(false);
     setShowAddPro(false);
-    setNovoPro({ nome: "", especialidade: "", abordagem: "" });
+    setNovoPro({ nome: "", especialidade: "", abordagem: "", email: "", senha: "" });
   };
 
   const removerProfissional = async (id: string) => {
@@ -952,6 +981,11 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
         {msgOk && (
           <div style={{ background: "#DCFCE7", color: "#16A34A", padding: "12px 16px", borderRadius: 10, marginBottom: 20, fontWeight: 700, fontSize: 14 }}>
             ✅ {msgOk}
+          </div>
+        )}
+        {msgErro && (
+          <div style={{ background: "#FEF2F2", color: "#EF4444", padding: "12px 16px", borderRadius: 10, marginBottom: 20, fontWeight: 700, fontSize: 14 }}>
+            ❌ {msgErro}
           </div>
         )}
 
@@ -1114,12 +1148,23 @@ const DashAdmin = ({ onSair }: { onSair: () => void }) => {
       </div>
 
       {showAddPro && (
-        <Modal titulo="Adicionar Profissional" onFechar={() => setShowAddPro(false)}>
+        <Modal titulo="Adicionar Profissional" onFechar={() => { setShowAddPro(false); setMsgErro(""); setNovoPro({ nome: "", especialidade: "", abordagem: "", email: "", senha: "" }); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ background: "#EFF6FF", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "#1D4ED8" }}>
+              💡 Preencha os dados do profissional e crie o acesso dele à plataforma.
+            </div>
             <Campo label="Nome completo" valor={novoPro.nome} onChange={(v) => setNovoPro((p) => ({ ...p, nome: v }))} placeholder="Dr./Dra. Nome Sobrenome" obrigatorio />
             <Campo label="Especialidade" valor={novoPro.especialidade} onChange={(v) => setNovoPro((p) => ({ ...p, especialidade: v }))} placeholder="Ex: Ansiedade e Depressão" obrigatorio />
             <Campo label="Abordagem terapêutica" valor={novoPro.abordagem} onChange={(v) => setNovoPro((p) => ({ ...p, abordagem: v }))} placeholder="Ex: TCC, Psicanálise, EMDR" obrigatorio />
-            <button className="btn-primary" onClick={adicionarProfissional}>{carregando ? "Salvando..." : "Adicionar Profissional"}</button>
+            <div style={{ borderTop: "1px solid #E8E2DA", paddingTop: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#2C2C2C", marginBottom: 12 }}>🔐 Acesso à plataforma</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <Campo label="E-mail de acesso" tipo="email" valor={novoPro.email} onChange={(v) => setNovoPro((p) => ({ ...p, email: v }))} placeholder="email@profissional.com" obrigatorio />
+                <Campo label="Senha inicial" tipo="password" valor={novoPro.senha} onChange={(v) => setNovoPro((p) => ({ ...p, senha: v }))} placeholder="Mínimo 6 caracteres" obrigatorio />
+              </div>
+            </div>
+            {msgErro && <div style={{ color: "#EF4444", fontSize: 13, background: "#FEF2F2", padding: "10px 14px", borderRadius: 8 }}>{msgErro}</div>}
+            <button className="btn-primary" onClick={adicionarProfissional}>{carregando ? "Criando conta..." : "Adicionar Profissional"}</button>
           </div>
         </Modal>
       )}
