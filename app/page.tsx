@@ -468,15 +468,17 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
   const [dispPro, setDispPro] = useState<{dias_semana: number[], horarios: string[], horarios_bloqueados: string[]} | null>(null);
 
   const carregarDisponibilidade = async (proId: string) => {
-    const { data } = await supabase.from("disponibilidade").select("*").eq("profissional_id", proId).single();
-    if (data) setDispPro(data);
+    const { data, error } = await supabase.from("disponibilidade").select("*").eq("profissional_id", proId).limit(1);
+    console.log("disponibilidade carregada:", data, "erro:", error, "proId:", proId);
+    if (data && data.length > 0) setDispPro(data[0]);
     else setDispPro(null);
   };
 
   const horariosDisponiveis = (data: string) => {
-    if (!dispPro) return HORARIOS;
+    console.log("dispPro estado:", dispPro);
+    if (!dispPro) return [];
     const diaSemana = new Date(data + "T12:00:00").getDay();
-    // Converte para numero pois o banco pode retornar strings
+    console.log("dia semana:", diaSemana, "dias permitidos:", dispPro.dias_semana);
     const diasNumericos = dispPro.dias_semana.map((d: number | string) => Number(d));
     if (!diasNumericos.includes(diaSemana)) return [];
     return dispPro.horarios.filter((h: string) => !dispPro.horarios_bloqueados.includes(`${data}_${h}`));
