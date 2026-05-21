@@ -781,7 +781,9 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
     const carregar = async () => {
       const { data: ags } = await supabase.from("agendamentos").select("*").eq("profissional_nome", usuario.nome).order("data", { ascending: true });
       if (ags) setAgendamentos(ags);
-      const { data: disp } = await supabase.from("disponibilidade").select("*").eq("profissional_id", usuario.id).single();
+      const { data: proData } = await supabase.from("profissionais").select("id").eq("nome", usuario.nome).single();
+      const proId = proData?.id || usuario.id;
+      const { data: disp } = await supabase.from("disponibilidade").select("*").eq("profissional_id", proId).single();
       if (disp) {
         setDispId(disp.id);
         setDiasSelecionados(disp.dias_semana || [1,2,3,4,5]);
@@ -806,7 +808,10 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
 
   const salvarDisponibilidade = async () => {
     setSalvandoDisp(true);
-    const payload = { profissional_id: usuario.id, dias_semana: diasSelecionados, horarios: horariosSelecionados, horarios_bloqueados: bloqueados };
+    // Busca o id real na tabela profissionais pelo nome do usuario
+    const { data: proData } = await supabase.from("profissionais").select("id").eq("nome", usuario.nome).single();
+    const proId = proData?.id || usuario.id;
+    const payload = { profissional_id: proId, dias_semana: diasSelecionados, horarios: horariosSelecionados, horarios_bloqueados: bloqueados };
     if (dispId) {
       await supabase.from("disponibilidade").update(payload).eq("id", dispId);
     } else {
