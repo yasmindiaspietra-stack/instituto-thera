@@ -475,13 +475,11 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
   };
 
   const horariosDisponiveis = (data: string) => {
-    console.log("dispPro estado:", dispPro);
     if (!dispPro) return [];
     const diaSemana = new Date(data + "T12:00:00").getDay();
-    console.log("dia semana:", diaSemana, "dias permitidos:", dispPro.dias_semana);
-    const diasNumericos = dispPro.dias_semana.map((d: number | string) => Number(d));
+    const diasNumericos = (dispPro.dias_semana || []).map((d: number | string) => Number(d));
     if (!diasNumericos.includes(diaSemana)) return [];
-    return dispPro.horarios.filter((h: string) => !dispPro.horarios_bloqueados.includes(`${data}_${h}`));
+    return (dispPro.horarios || []).filter((h: string) => !(dispPro.horarios_bloqueados || []).includes(`${data}_${h}`));
   };
 
   const confirmarAgendamento = async () => {
@@ -627,7 +625,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                     </div>
                     <span className="badge" style={{ background: p.disponivel ? C.sage : C.mist }}>{p.disponivel ? "Disponível" : "Ocupado"}</span>
                   </div>
-                  {p.disponivel && <button className="btn-primary" onClick={() => { setProBuscado(p); setShowAgendar(true); }}>Agendar com {p.nome.split(" ")[1]}</button>}
+                  {p.disponivel && <button className="btn-primary" onClick={() => { setProBuscado(p); carregarDisponibilidade(p.id); setShowAgendar(true); }}>Agendar com {p.nome.split(" ")[1]}</button>}
                 </div>
               ))}
             </div>
@@ -698,7 +696,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                     <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 14, flex: 1 }}>{proBuscado.nome}</div>
                     <button onClick={() => setProBuscado(null)} style={{ background: "none", border: "none", color: C.mist, cursor: "pointer", fontSize: 13 }}>Trocar</button>
                   </div>
-                  <Campo label="Data da consulta" tipo="date" valor={dataEsc} onChange={setDataEsc} obrigatorio />
+                  <Campo label="Data da consulta" tipo="date" valor={dataEsc} onChange={(v) => { setDataEsc(v); if (!dispPro && proBuscado) carregarDisponibilidade(proBuscado.id); }} obrigatorio />
                   {dataEsc && (
                     <div>
                       <label>Escolha o horário:</label>
