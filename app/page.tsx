@@ -465,6 +465,21 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
     if (usuario.id !== "admin" && usuario.id !== "psi") carregar();
   }, [usuario.id]);
 
+  const [dispPro, setDispPro] = useState<{dias_semana: number[], horarios: string[], horarios_bloqueados: string[]} | null>(null);
+
+  const carregarDisponibilidade = async (proId: string) => {
+    const { data } = await supabase.from("disponibilidade").select("*").eq("profissional_id", proId).single();
+    if (data) setDispPro(data);
+    else setDispPro(null);
+  };
+
+  const horariosDisponiveis = (data: string) => {
+    if (!dispPro) return HORARIOS;
+    const diaSemana = new Date(data + "T12:00:00").getDay();
+    if (!dispPro.dias_semana.includes(diaSemana)) return [];
+    return dispPro.horarios.filter(h => !dispPro.horarios_bloqueados.includes(`${data}_${h}`));
+  };
+
   const confirmarAgendamento = async () => {
     if (!proBuscado || !dataEsc || !horaEsc) return;
     setCarregando(true);
@@ -479,12 +494,11 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
     }).select().single();
     if (!error && data) {
       setAgendamentos((p) => [data, ...p]);
-      // Envia e-mail de confirmacao
       await enviarEmailConfirmacao(usuario.email, usuario.nome, proBuscado.nome, dataEsc, horaEsc);
     }
     setCarregando(false);
     setAgendouOk(true);
-    setTimeout(() => { setShowAgendar(false); setAgendouOk(false); setProBuscado(null); setDataEsc(""); setHoraEsc(""); }, 2500);
+    setTimeout(() => { setShowAgendar(false); setAgendouOk(false); setProBuscado(null); setDataEsc(""); setHoraEsc(""); setDispPro(null); }, 2500);
   };
 
   const enviarFeedback = async (agendamentoId: string) => {
@@ -664,7 +678,7 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.charcoal, marginBottom: 12 }}>Escolha o profissional:</div>
                   {profissionais.filter((p) => p.disponivel).map((p) => (
-                    <button key={p.id} onClick={() => setProBuscado(p)} style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, border: `2px solid ${C.stone}`, background: "white", cursor: "pointer", width: "100%", marginBottom: 10, textAlign: "left" }}>
+                    <button key={p.id} onClick={() => { setProBuscado(p); carregarDisponibilidade(p.id); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, border: `2px solid ${C.stone}`, background: "white", cursor: "pointer", width: "100%", marginBottom: 10, textAlign: "left" }}>
                       <Av iniciais={p.iniciais} tamanho={40} />
                       <div>
                         <div style={{ fontWeight: 700, color: C.charcoal, fontSize: 14 }}>{p.nome}</div>
@@ -684,11 +698,30 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
                   {dataEsc && (
                     <div>
                       <label>Escolha o horário:</label>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                        {HORARIOS.map((h) => (
-                          <button key={h} onClick={() => setHoraEsc(h)} className="time-slot" style={{ background: horaEsc === h ? C.sage : "white", color: horaEsc === h ? "white" : C.charcoal, borderColor: horaEsc === h ? C.sage : C.stone }}>{h}</button>
-                        ))}
-                      </div>
+                      {horariosDisponiveis(dataEsc).length === 0 ? (
+                        <div style={{ background: "#FEF2F2", color: "#EF4444", padding: "12px 14px", borderRadius: 8, fontSize: 13, marginTop: 8 }}>
+                          🚫 Profissional não atende neste dia. Escolha outra data.
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                          {HORARIOS.map((h) => {
+                            const disponivel = horariosDisponiveis(dataEsc).includes(h);
+                            return (
+                              <button key={h} onClick={() => disponivel && setHoraEsc(h)} className="time-slot" style={{
+                                background: horaEsc === h ? C.sage : disponivel ? "white" : C.cream,
+                                color: horaEsc === h ? "white" : disponivel ? C.charcoal : C.stone,
+                                borderColor: horaEsc === h ? C.sage : disponivel ? C.stone : C.cream,
+                                cursor: disponivel ? "pointer" : "not-allowed",
+                                opacity: disponivel ? 1 : 0.5,
+                                position: "relative",
+                              }}>
+                                {!disponivel && <span style={{ fontSize: 10, position: "absolute", top: 2, right: 4, color: "#EF4444" }}>✕</span>}
+                                {h}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                   <button className="btn-primary" onClick={confirmarAgendamento}>{carregando ? "Salvando..." : "Confirmar Agendamento"}</button>
@@ -722,14 +755,68 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
 };
 
 // ── DASHBOARD PROFISSIONAL ────────────────────────────────────────────────────
+const DIAS_SEMANA = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+const TODOS_HORARIOS = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"];
+
+interface DisponibilidadeDB {
+  id?: string;
+  profissional_id: string;
+  dias_semana: number[];
+  horarios: string[];
+  horarios_bloqueados: string[];
+}
+
 const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) => {
   const [tela, setTela] = useState("agenda");
-  const [showChamada, setShowChamada] = useState(false);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const [diasSelecionados, setDiasSelecionados] = useState<number[]>([1,2,3,4,5]);
+  const [horariosSelecionados, setHorariosSelecionados] = useState<string[]>(["09:00","10:00","11:00","14:00","15:00","16:00"]);
+  const [bloqueados, setBloqueados] = useState<string[]>([]);
+  const [dataBloqueio, setDataBloqueio] = useState("");
+  const [salvandoDisp, setSalvandoDisp] = useState(false);
+  const [msgDispOk, setMsgDispOk] = useState("");
+  const [dispId, setDispId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("agendamentos").select("*").eq("profissional_nome", usuario.nome).order("data", { ascending: true }).then(({ data }) => { if (data) setAgendamentos(data); });
-  }, [usuario.nome]);
+    const carregar = async () => {
+      const { data: ags } = await supabase.from("agendamentos").select("*").eq("profissional_nome", usuario.nome).order("data", { ascending: true });
+      if (ags) setAgendamentos(ags);
+      const { data: disp } = await supabase.from("disponibilidade").select("*").eq("profissional_id", usuario.id).single();
+      if (disp) {
+        setDispId(disp.id);
+        setDiasSelecionados(disp.dias_semana || [1,2,3,4,5]);
+        setHorariosSelecionados(disp.horarios || ["09:00","10:00","11:00","14:00","15:00","16:00"]);
+        setBloqueados(disp.horarios_bloqueados || []);
+      }
+    };
+    carregar();
+  }, [usuario.id, usuario.nome]);
+
+  const toggleDia = (dia: number) => {
+    setDiasSelecionados(prev => prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]);
+  };
+
+  const toggleHorario = (h: string) => {
+    setHorariosSelecionados(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h]);
+  };
+
+  const toggleBloqueio = (dataHora: string) => {
+    setBloqueados(prev => prev.includes(dataHora) ? prev.filter(x => x !== dataHora) : [...prev, dataHora]);
+  };
+
+  const salvarDisponibilidade = async () => {
+    setSalvandoDisp(true);
+    const payload = { profissional_id: usuario.id, dias_semana: diasSelecionados, horarios: horariosSelecionados, horarios_bloqueados: bloqueados };
+    if (dispId) {
+      await supabase.from("disponibilidade").update(payload).eq("id", dispId);
+    } else {
+      const { data } = await supabase.from("disponibilidade").insert(payload).select().single();
+      if (data) setDispId(data.id);
+    }
+    setSalvandoDisp(false);
+    setMsgDispOk("Disponibilidade salva com sucesso!");
+    setTimeout(() => setMsgDispOk(""), 3000);
+  };
 
   const marcarAtendido = async (id: string) => {
     await supabase.from("agendamentos").update({ status: "atendido" }).eq("id", id);
@@ -738,6 +825,7 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
 
   const menus = [
     { id: "agenda", ic: "📅", l: "Agenda" },
+    { id: "disponibilidade", ic: "🗓️", l: "Disponibilidade" },
     { id: "pacientes", ic: "👥", l: "Pacientes" },
     { id: "historico", ic: "📋", l: "Histórico" },
   ];
@@ -806,6 +894,79 @@ const DashProfissional = ({ usuario, onSair }: { usuario: Usuario; onSair: () =>
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {tela === "disponibilidade" && (
+          <div>
+            <h1 style={{ fontSize: "clamp(22px, 4vw, 30px)", color: C.charcoal, marginBottom: 6 }}>Minha Disponibilidade</h1>
+            <p style={{ color: C.mist, fontSize: 14, marginBottom: 24 }}>Configure seus dias e horários de atendimento</p>
+
+            {msgDispOk && <div style={{ background: "#DCFCE7", color: "#16A34A", padding: "12px 16px", borderRadius: 10, marginBottom: 20, fontWeight: 700, fontSize: 14 }}>✅ {msgDispOk}</div>}
+
+            <div className="card" style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, color: C.charcoal, marginBottom: 16 }}>📆 Dias de atendimento</h2>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {DIAS_SEMANA.map((d, i) => (
+                  <button key={i} onClick={() => toggleDia(i)} style={{
+                    padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14,
+                    background: diasSelecionados.includes(i) ? C.sage : C.cream,
+                    color: diasSelecionados.includes(i) ? "white" : C.mist,
+                    transition: "all 0.2s"
+                  }}>{d}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, color: C.charcoal, marginBottom: 16 }}>🕐 Horários disponíveis</h2>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {TODOS_HORARIOS.map((h) => (
+                  <button key={h} onClick={() => toggleHorario(h)} style={{
+                    padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14,
+                    background: horariosSelecionados.includes(h) ? C.blue : C.cream,
+                    color: horariosSelecionados.includes(h) ? "white" : C.mist,
+                    transition: "all 0.2s"
+                  }}>{h}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, color: C.charcoal, marginBottom: 8 }}>🚫 Bloquear horário específico</h2>
+              <p style={{ fontSize: 13, color: C.mist, marginBottom: 14 }}>Ex: férias, feriado, compromisso pontual</p>
+              <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                <input type="date" value={dataBloqueio} onChange={e => setDataBloqueio(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+              </div>
+              {dataBloqueio && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.charcoal, marginBottom: 10 }}>Clique para bloquear horários em {dataBloqueio}:</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {horariosSelecionados.map((h) => {
+                      const chave = `${dataBloqueio}_${h}`;
+                      const bloqueado = bloqueados.includes(chave);
+                      return (
+                        <button key={h} onClick={() => toggleBloqueio(chave)} style={{
+                          padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14,
+                          background: bloqueado ? "#FEE2E2" : C.cream,
+                          color: bloqueado ? "#EF4444" : C.mist,
+                          transition: "all 0.2s"
+                        }}>{bloqueado ? "🚫 " : ""}{h}</button>
+                      );
+                    })}
+                  </div>
+                  {bloqueados.filter(b => b.startsWith(dataBloqueio)).length > 0 && (
+                    <div style={{ fontSize: 12, color: "#EF4444", marginTop: 10 }}>
+                      {bloqueados.filter(b => b.startsWith(dataBloqueio)).length} horário(s) bloqueado(s) neste dia
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button className="btn-primary" onClick={salvarDisponibilidade} style={{ maxWidth: 320 }}>
+              {salvandoDisp ? "Salvando..." : "💾 Salvar Disponibilidade"}
+            </button>
           </div>
         )}
 
