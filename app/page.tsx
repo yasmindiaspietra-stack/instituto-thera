@@ -476,8 +476,10 @@ const DashPaciente = ({ usuario, onSair }: { usuario: Usuario; onSair: () => voi
   const horariosDisponiveis = (data: string) => {
     if (!dispPro) return HORARIOS;
     const diaSemana = new Date(data + "T12:00:00").getDay();
-    if (!dispPro.dias_semana.includes(diaSemana)) return [];
-    return dispPro.horarios.filter(h => !dispPro.horarios_bloqueados.includes(`${data}_${h}`));
+    // Converte para numero pois o banco pode retornar strings
+    const diasNumericos = dispPro.dias_semana.map((d: number | string) => Number(d));
+    if (!diasNumericos.includes(diaSemana)) return [];
+    return dispPro.horarios.filter((h: string) => !dispPro.horarios_bloqueados.includes(`${data}_${h}`));
   };
 
   const confirmarAgendamento = async () => {
